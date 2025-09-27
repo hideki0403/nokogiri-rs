@@ -3,7 +3,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use scraper::{Html, Selector};
 use url::Url;
-use crate::core::{request, summary::{def::{Player, SummalyHandler, SummarizeHandler, SummaryResult}, selector, summarize::{self, GenericSummarizeHandler}}};
+use crate::core::{request, summary::{def::{Player, SummalyHandler, SummarizeHandler, SummaryResultWithMetadata}, selector, summarize::{self, GenericSummarizeHandler}}};
 
 static DOMAIN_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^(www\.)?((amazon(\.co|com)?(\.[a-z]{2})?|amzn\.[a-z]{2,4}))$").unwrap()
@@ -28,14 +28,19 @@ impl SummalyHandler for AmazonHandler {
         DOMAIN_REGEX.is_match(host)
     }
 
-    async fn summarize(&self, url: &Url) -> Option<SummaryResult> {
+    async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata> {
         let response = request::get_with_options(url.as_str(), &Some(request::RequestOptions {
             user_agent: Some(request::UserAgentList::TwitterBot),
             ..Default::default()
         })).await.ok()?;
 
         let body = response.text().await.ok()?;
-        summarize::execute_summarize(url, body, &AmazonSummarizeHandler).await
+        let summarized = summarize::execute_summarize(url, body, &AmazonSummarizeHandler).await?;
+
+        Some(SummaryResultWithMetadata {
+            summary: summarized,
+            cache_ttl: 3600,
+        })
     }
 }
 

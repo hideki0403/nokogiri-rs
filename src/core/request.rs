@@ -1,4 +1,4 @@
-use std::{error::Error, sync::Arc};
+use std::{env, error::Error, sync::Arc};
 use anyhow::Result;
 use once_cell::sync::Lazy;
 use reqwest::{cookie::Jar, header::HeaderMap, Client, Response};
@@ -58,7 +58,7 @@ pub enum UserAgentList {
 impl UserAgentList {
     pub fn to_string(&self) -> String {
         match self {
-            UserAgentList::Default => format!("Mozilla/5.0 (compatible; {}/{})", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
+            UserAgentList::Default => format!("Mozilla/5.0 (compatible; {} {}) SummaryBot/1.0 {}/{}", env::consts::OS, env::consts::ARCH, env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
             UserAgentList::TwitterBot => "Twitterbot/1.0".to_string(),
             UserAgentList::Chrome => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36".to_string(),
         }
@@ -72,13 +72,29 @@ pub struct RequestOptions {
     pub headers: Option<HeaderMap>,
 }
 
-pub async fn get(url: &str) -> Result<String> {
+pub async fn get(url: &str) -> Result<(String, u64)> {
     let response = get_with_options(url, &None).await?;
-    Ok(response.text().await?)
+    let ttl = &response.headers()
+        .get("Cache-Control")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| {
+            s.split(',')
+            .find_map(|part| {
+                let part = part.trim();
+                if part.starts_with("max-age=") {
+                    part[8..].parse::<u64>().ok()
+                } else {
+                    None
+                }
+            })
+        })
+        .unwrap_or(300);
+
+    let content = response.text().await?;
+    Ok((content, *ttl))
 }
 
 pub async fn get_with_options(url: &str, options: &Option<RequestOptions>) -> Result<Response> {
-    // TODO: リクエストのキャッシュ
     let default_options = RequestOptions::default();
     let options = options.as_ref().unwrap_or(&default_options);
 

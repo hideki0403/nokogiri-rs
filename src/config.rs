@@ -32,10 +32,22 @@ pub struct IDebug {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+pub struct ICache {
+    pub enabled: bool,
+    pub host: String,
+    pub port: u16,
+    pub prefix: Option<String>,
+    pub db: Option<u32>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct AppConfig {
     pub server: IServer,
     pub security: ISecurity,
     pub plugins: IPlugins,
+    pub cache: ICache,
     pub sentry: Option<ISentry>,
     pub debug: Option<IDebug>,
 }

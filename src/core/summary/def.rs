@@ -5,7 +5,7 @@ use url::Url;
 
 /* Summary */
 
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Player {
     pub url: Option<String>,
     pub width: Option<u32>,
@@ -13,7 +13,7 @@ pub struct Player {
     pub allow: Vec<String>,
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SummaryResult {
     pub title: String,
     pub icon: Option<String>,
@@ -28,11 +28,17 @@ pub struct SummaryResult {
     pub large_card: Option<bool>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct SummaryResultWithMetadata {
+    pub summary: SummaryResult,
+    pub cache_ttl: u64, // in seconds
+}
+
 #[async_trait]
 pub trait SummalyHandler: Send + Sync {
     fn id(&self) -> &str;
     fn test(&self, url: &Url) -> bool;
-    async fn summarize(&self, url: &Url) -> Option<SummaryResult>;
+    async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata>;
 }
 
 /* Summarize */

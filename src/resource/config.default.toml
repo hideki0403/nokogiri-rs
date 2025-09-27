@@ -9,5 +9,14 @@ allowed_private_ips = []
 [plugins]
 disabled = []
 
+[cache] # redis cache
+enabled = false
+host = "127.0.0.1"
+port = 6379
+# prefix = "prod"
+# db = 0
+# username = ""
+# password = ""
+
 # [sentry]
 # dsn = ""

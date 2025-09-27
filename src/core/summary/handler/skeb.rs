@@ -5,7 +5,7 @@ use regex::Regex;
 use reqwest::StatusCode;
 use serde::{de::DeserializeOwned, Deserialize};
 use url::Url;
-use crate::core::{request::{self, RequestOptions}, summary::{def::{SummalyHandler, SummaryResult}, utility::text_clamp}};
+use crate::core::{request::{self, RequestOptions}, summary::{def::{SummalyHandler, SummaryResult, SummaryResultWithMetadata}, utility::text_clamp}};
 
 static COOKIE_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r#"document\.cookie\s?=\s?"(?<cookie>.*)";"#).unwrap()
@@ -65,7 +65,7 @@ impl SummalyHandler for SkebHandler {
         ACCEPTABLE_URL_REGEX.is_match(url.as_str())
     }
 
-    async fn summarize(&self, url: &Url) -> Option<SummaryResult> {
+    async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata> {
         let caps = ACCEPTABLE_URL_REGEX.captures(url.as_str())?;
         let user = caps.name("user")?.as_str();
         let work = caps.name("work").map(|m| m.as_str());
@@ -95,7 +95,7 @@ impl SummalyHandler for SkebHandler {
             }
         };
 
-        Some(SummaryResult {
+        let summarized = SummaryResult {
             title: format!("{} | Skeb", summary.title),
             description: summary.description,
             icon: Some("https://fcdn.skeb.jp/assets/v1/commons/favicon.ico".to_string()),
@@ -104,6 +104,11 @@ impl SummalyHandler for SkebHandler {
             sensitive: Some(summary.nsfw),
             large_card: Some(true),
             ..Default::default()
+        };
+
+        Some(SummaryResultWithMetadata {
+            summary: summarized,
+            cache_ttl: 3600,
         })
     }
 }

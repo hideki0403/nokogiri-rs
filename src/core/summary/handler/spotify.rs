@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use scraper::Html;
 use url::Url;
-use crate::core::{request, summary::{def::{Player, SummalyHandler, SummarizeHandler, SummaryResult}, summarize::{self, GenericSummarizeHandler}}};
+use crate::core::{request, summary::{def::{Player, SummalyHandler, SummarizeHandler, SummaryResultWithMetadata}, summarize::{self, GenericSummarizeHandler}}};
 
 pub struct SpotifyHandler;
 
@@ -15,14 +15,19 @@ impl SummalyHandler for SpotifyHandler {
         url.domain().unwrap_or("") == "open.spotify.com"
     }
 
-    async fn summarize(&self, url: &Url) -> Option<SummaryResult> {
+    async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata> {
         let response = request::get_with_options(url.as_str(), &Some(request::RequestOptions {
             user_agent: Some(request::UserAgentList::TwitterBot),
             ..Default::default()
         })).await.ok()?;
 
         let body = response.text().await.ok()?;
-        summarize::execute_summarize(url, body, &SpotifySummarizeHandler).await
+        let summarized = summarize::execute_summarize(url, body, &SpotifySummarizeHandler).await?;
+
+        Some(SummaryResultWithMetadata {
+            summary: summarized,
+            cache_ttl: 86400, // 1 day
+        })
     }
 }
 

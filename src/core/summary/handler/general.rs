@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use url::Url;
-use crate::core::summary::{def::{SummalyHandler, SummaryResult}, summarize};
+use crate::core::{request, summary::{def::{SummalyHandler, SummaryResultWithMetadata}, summarize}};
 
 pub struct GeneralHandler;
 
@@ -14,12 +14,13 @@ impl SummalyHandler for GeneralHandler {
         true
     }
 
-    async fn summarize(&self, url: &Url) -> Option<SummaryResult> {
-        let response = summarize::fetch(url).await;
-        if let Some(html) = response {
-            summarize::generic_summarize(url, html).await
-        } else {
-            None
-        }
+    async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata> {
+        let (html, ttl) = request::get(url.as_str()).await.ok()?;
+        let summarized = summarize::generic_summarize(url, html).await?;
+
+        Some(SummaryResultWithMetadata {
+            summary: summarized,
+            cache_ttl: ttl,
+        })
     }
 }

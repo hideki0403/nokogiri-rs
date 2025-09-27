@@ -4,17 +4,13 @@ use scraper::Html;
 use htmlentity::{self, entity::ICodedDataTrait};
 use crate::core::{request, summary::{def::*, selector, utility::{resolve_absolute_url, select_attr, select_text, text_clamp, url_exists_check}}};
 
-pub async fn fetch(url: &Url) -> Option<String> {
-    request::get(url.as_str()).await.ok()
-}
-
 pub async fn resolve_oembed(url: &Url, href: Option<String>) -> Option<Player> {
     if href.is_none() {
         return None;
     }
 
     let href = resolve_absolute_url(url, &href.unwrap())?;
-    let response = request::get(&href).await.ok()?;
+    let (response, _) = request::get(&href).await.ok()?;
     let oembed = serde_json::from_str::<OEmbedData>(&response).ok()?;
 
     if oembed.version != "1.0" && oembed.r#type != "video" && oembed.r#type != "rich" {

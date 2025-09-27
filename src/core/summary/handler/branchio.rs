@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use url::Url;
-use crate::core::summary::{def::{SummalyHandler, SummaryResult}, summarize};
+use crate::core::{request, summary::{def::{SummalyHandler, SummaryResult, SummaryResultWithMetadata}, summarize}};
 
 pub struct BranchioHandler;
 
@@ -15,15 +15,16 @@ impl SummalyHandler for BranchioHandler {
         domain == "spotify.link" || domain.ends_with(".app.link")
     }
 
-    async fn summarize(&self, url: &Url) -> Option<SummaryResult> {
+    async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata> {
         let mut fixed_url = url.clone();
         fixed_url.set_query(Some("$web_only=true"));
 
-        let response = summarize::fetch(&fixed_url).await;
-        if let Some(html) = response {
-            summarize::generic_summarize(&fixed_url, html).await
-        } else {
-            None
-        }
+        let (html, ttl) = request::get(fixed_url.as_str()).await.ok()?;
+        let summarized = summarize::generic_summarize(&fixed_url, html).await?;
+
+        Some(SummaryResultWithMetadata {
+            summary: summarized,
+            cache_ttl: ttl,
+        })
     }
 }
