@@ -99,20 +99,20 @@ pub async fn get_with_options(url: &str, options: &Option<RequestOptions>) -> Re
 
     let response = request.send().await;
     if let Err(e) = &response {
-        tracing::error!("Failed to fetch '{}' -> {}", url, e);
+        let is_ignore_error = 'err: {
+            let ReqwestMiddlewareError::Reqwest(inner) = e else { break 'err false };
+            let Some(hyper_err) = inner.source().and_then(|s| s.downcast_ref::<HyperUtilError>()) else { break 'err false };
+            if let Some(source) = hyper_err.source() {
+                source.to_string() == "tcp connect error"
+            } else {
+                false
+            }
+        };
 
-        match e {
-            ReqwestMiddlewareError::Middleware(_) => {
-            }
-            ReqwestMiddlewareError::Reqwest(err) => {
-                if let Some(hyper_err) = err.source().and_then(|s| s.downcast_ref::<HyperUtilError>()) {
-                    hyper_err.source().and_then(|e| e.downcast_ref::<std::io::Error>()).map(|io_err| {
-                        if io_err.kind() == std::io::ErrorKind::NotConnected {
-                            tracing::error!("Connection refused: {}", io_err);
-                        }
-                    });
-                }
-            }
+        if is_ignore_error {
+            tracing::info!("Failed to resolve host for '{}'. The resolved IP address may have been blocked by ACL.", url);
+        } else {
+            tracing::error!("Failed to fetch '{}' -> {}", url, e);
         }
     }
 
