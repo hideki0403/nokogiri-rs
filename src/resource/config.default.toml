@@ -4,7 +4,7 @@ port = 3030
 
 [security]
 secret_key = ""
-allowed_private_ips = []
+block_non_global_ips = true
 
 [plugins]
 disabled = []

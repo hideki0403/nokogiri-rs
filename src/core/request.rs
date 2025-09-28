@@ -3,7 +3,7 @@ use anyhow::Result;
 use once_cell::sync::Lazy;
 use reqwest::{cookie::Jar, header::HeaderMap, Client, Response};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Error as ReqwestMiddlewareError};
-use http_acl_reqwest::{http_acl::IpNet, HttpAcl, HttpAclMiddleware};
+use http_acl_reqwest::{HttpAcl, HttpAclMiddleware};
 use hyper_util::client::legacy::Error as HyperUtilError;
 use url::Url;
 use crate::config::CONFIG;
@@ -13,24 +13,11 @@ mod resolver;
 pub static COOKIE_JAR: Lazy<Arc<Jar>> = Lazy::new(|| Arc::new(Jar::default()));
 
 pub static CLIENT: Lazy<ClientWithMiddleware> = Lazy::new(|| {
-    let allowed_private_ips: Vec<IpNet> = CONFIG.security.allowed_private_ips
-        .iter()
-        .filter_map(|ip| {
-            let x = ip.parse();
-            if let Err(e) = &x {
-                tracing::error!("Failed to parse allowed_private_ip '{}': {}", ip, e);
-            }
-            x.ok()
-        })
-        .collect();
-
     let acl = HttpAcl::builder()
         .ip_acl_default(true)
         .port_acl_default(true)
         .host_acl_default(true)
-        .non_global_ip_ranges(false)
-        .allowed_ip_ranges(allowed_private_ips)
-        .unwrap()
+        .non_global_ip_ranges(CONFIG.security.block_non_global_ips)
         .build();
 
     let middleware = HttpAclMiddleware::new(acl);

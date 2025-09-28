@@ -13,7 +13,7 @@ pub struct IServer {
 #[derive(Deserialize, Debug, Clone)]
 pub struct ISecurity {
     pub secret_key: String,
-    pub allowed_private_ips: Vec<String>,
+    pub block_non_global_ips: bool,
 }
 
 #[derive(Deserialize, Debug, Clone)]
