@@ -15,6 +15,11 @@ impl SummalyHandler for GeneralHandler {
     }
 
     async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata> {
+        if !request::is_allowed_scraping(url).await {
+            tracing::info!("Scraping disallowed by robots.txt: {}", url);
+            return None;
+        }
+
         let (html, ttl) = request::get(url.as_str()).await.ok()?;
         let summarized = summarize::generic_summarize(url, html).await?;
 

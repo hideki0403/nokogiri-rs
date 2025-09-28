@@ -95,3 +95,28 @@ pub fn set_summarize_cache(url: &str, content: &str, ttl: &u64) {
         }
     };
 }
+
+pub fn get_robotstxt_cache(domain: &str) -> Option<String> {
+    let mut connection = REDIS_CLIENT.as_ref()?.get_connection().ok()?;
+    let key = gen_key("robotstxt", xxh64(domain.as_bytes(), 0).to_string().as_str());
+    tracing::debug!("Checking robots.txt cache for key: {}", key);
+    connection.get(&key).ok()
+}
+
+pub fn set_robotstxt_cache(domain: &str, content: &str) {
+    let mut connection = match REDIS_CLIENT.as_ref().and_then(|c| c.get_connection().ok()) {
+        Some(conn) => conn,
+        None => return,
+    };
+
+    let key = gen_key("robotstxt", xxh64(domain.as_bytes(), 0).to_string().as_str());
+    tracing::debug!("Setting robots.txt cache for key: {key} ({domain})");
+
+    match connection.set_ex::<&String, &str, String>(&key, content, 86400) {
+        Ok(_) => (),
+        Err(e) => {
+            tracing::error!("Failed to set robots.txt cache for key {}: {}", key, e);
+            return;
+        }
+    };
+}

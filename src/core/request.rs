@@ -6,7 +6,7 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Error as ReqwestMi
 use http_acl_reqwest::{HttpAcl, HttpAclMiddleware};
 use hyper_util::client::legacy::Error as HyperUtilError;
 use url::Url;
-use crate::config::CONFIG;
+use crate::{config::CONFIG, core::cache};
 
 mod resolver;
 
@@ -129,4 +129,42 @@ pub async fn head(url: &str) -> Result<HeaderMap> {
 
 pub fn add_cookie(url: &Url, cookie_str: &str) {
     COOKIE_JAR.add_cookie_str(cookie_str, &url);
+}
+
+pub async fn is_allowed_scraping(url: &Url) -> bool {
+    let domain = match url.host_str() {
+        Some(d) => d,
+        None => return false,
+    };
+
+    let txt = match cache::get_robotstxt_cache(domain) {
+        Some(cached) => {
+            tracing::debug!("Robots.txt cache hit for domain: {}", domain);
+            cached
+        },
+        None => {
+            let robots_url = match url.join("/robots.txt") {
+                Ok(u) => u,
+                Err(e) => {
+                    tracing::debug!("Failed to construct robots.txt URL for '{}': {}", url, e);
+                    return false;
+                }
+            };
+
+            let (content, _) = match get(robots_url.as_str()).await {
+                Ok(x) => x,
+                Err(e) => {
+                    tracing::debug!("Failed to fetch robots.txt from '{}': {}", robots_url, e);
+                    cache::set_robotstxt_cache(domain, "");
+                    return true;
+                }
+            };
+
+            cache::set_robotstxt_cache(domain, &content);
+            content
+        }
+    };
+
+    texting_robots::Robot::new("SummaryBot", &txt.as_bytes())
+        .map_or(true, |robot| robot.allowed(url.path()))
 }
