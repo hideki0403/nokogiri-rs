@@ -26,10 +26,20 @@ pub async fn summary(url: &url::Url) -> Option<def::SummaryResult> {
     for handler in ACTIVE_HANDLERS.iter() {
         if handler.test(url) {
             tracing::debug!("Using handler: {}", handler.id());
-            let summarized = handler.summarize(url).await?;
-            let serialized = serde_json::to_string(&summarized.summary).ok()?;
-            cache::set_summarize_cache(url.as_str(), &serialized, &summarized.cache_ttl);
-            return Some(summarized.summary);
+
+            let summary = match handler.summarize(url).await {
+                Some(s) => {
+                    let serialized = serde_json::to_string(&s.summary).ok()?;
+                    cache::set_summarize_cache(url.as_str(), &serialized, &s.cache_ttl.clamp(300, 86400));
+                    Some(s.summary)
+                },
+                None => {
+                    cache::set_summarize_cache(url.as_str(), &"null", &300);
+                    None
+                },
+            };
+
+            return summary;
         }
     }
     None
