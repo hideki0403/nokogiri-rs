@@ -45,7 +45,7 @@ pub enum UserAgentList {
 impl UserAgentList {
     pub fn to_string(&self) -> String {
         match self {
-            UserAgentList::Default => format!("Mozilla/5.0 (compatible; {} {}) SummaryBot/1.0 {}/{}", env::consts::OS, env::consts::ARCH, env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
+            UserAgentList::Default => format!("Mozilla/5.0 (compatible; {} {}) SummalyBot/1.0 {}/{}", env::consts::OS, env::consts::ARCH, env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
             UserAgentList::TwitterBot => "Twitterbot/1.0".to_string(),
             UserAgentList::Chrome => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36".to_string(),
         }
@@ -165,6 +165,6 @@ pub async fn is_allowed_scraping(url: &Url) -> bool {
         }
     };
 
-    texting_robots::Robot::new("SummaryBot", &txt.as_bytes())
+    texting_robots::Robot::new("SummalyBot", &txt.as_bytes())
         .map_or(true, |robot| robot.allowed(url.path()))
 }
