@@ -4,6 +4,7 @@ port = 3030
 
 [config]
 ignore_robots_txt = false
+default_lang = "en-US"
 
 [security]
 secret_key = ""

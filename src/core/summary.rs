@@ -18,7 +18,7 @@ static ACTIVE_HANDLERS: Lazy<Vec<&'static dyn def::SummalyHandler>> =
 
 pub async fn summary(args: SummarizeArguments) -> Option<def::SummaryResult> {
     let url = &args.url;
-    let cache = cache::get_summarize_cache(url.as_str());
+    let cache = cache::get_summarize_cache(url.as_str(), args.lang.clone());
     if let Some(cached) = cache {
         tracing::debug!("Cache hit for URL: {}", url);
         return serde_json::from_str(&cached).ok();
@@ -31,11 +31,11 @@ pub async fn summary(args: SummarizeArguments) -> Option<def::SummaryResult> {
             let summary = match handler.summarize(&args).await {
                 Some(s) => {
                     let serialized = serde_json::to_string(&s.summary).ok()?;
-                    cache::set_summarize_cache(url.as_str(), &serialized, &s.cache_ttl.clamp(300, 86400));
+                    cache::set_summarize_cache(url.as_str(), args.lang.clone(), &serialized, &s.cache_ttl.clamp(300, 86400));
                     Some(s.summary)
                 },
                 None => {
-                    cache::set_summarize_cache(url.as_str(), &"null", &300);
+                    cache::set_summarize_cache(url.as_str(), args.lang.clone(), &"null", &300);
                     None
                 },
             };

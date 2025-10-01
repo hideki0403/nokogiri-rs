@@ -125,9 +125,11 @@ pub async fn get(url: &str, options: &RequestOptions) -> Result<ResponseWrapper>
     let mut headers = HeaderMap::new();
     headers.insert("Accept", options.accept_mime.as_deref().unwrap_or("text/html,application/xhtml+xml").parse().unwrap());
 
-    if let Some(lang) = &options.lang {
-        headers.insert("Accept-Language", lang.parse().unwrap());
-    }
+    let lang = options.lang
+        .as_ref()
+        .unwrap_or(&CONFIG.config.default_lang);
+
+    headers.insert("Accept-Language", lang.parse().unwrap());
 
     if &options.user_agent != &UserAgentList::Default {
         headers.insert("User-Agent", options.user_agent.to_string().parse().unwrap());

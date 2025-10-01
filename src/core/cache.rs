@@ -56,18 +56,18 @@ fn gen_key(category: &str, identifier: &str) -> String {
         key.push(':');
     }
 
-    key.push_str(&format!("nokogiri:{}:{}", category, identifier));
+    key.push_str(&format!("nokogiri:{}:{}", category, xxh64(identifier.as_bytes(), 0).to_string().as_str()));
     key
 }
 
-pub fn get_summarize_cache(url: &str) -> Option<String> {
+pub fn get_summarize_cache(url: &str, lang: Option<String>) -> Option<String> {
     let mut connection = REDIS_CLIENT.as_ref()?.get_connection().ok()?;
-    let key = gen_key("summarize", xxh64(url.as_bytes(), 0).to_string().as_str());
+    let key = gen_key("summarize", format!("{}:{}", url, lang.unwrap_or(CONFIG.config.default_lang.clone())).as_str());
     tracing::debug!("Checking cache for key: {}", key);
     connection.get(&key).ok()
 }
 
-pub fn set_summarize_cache(url: &str, content: &str, ttl: &u64) {
+pub fn set_summarize_cache(url: &str, lang: Option<String>, content: &str, ttl: &u64) {
     if ttl == &0 {
         tracing::debug!("TTL is 0, not setting cache");
         return;
@@ -78,7 +78,7 @@ pub fn set_summarize_cache(url: &str, content: &str, ttl: &u64) {
         None => return,
     };
 
-    let key = gen_key("summarize", xxh64(url.as_bytes(), 0).to_string().as_str());
+    let key = gen_key("summarize", format!("{}:{}", url, lang.unwrap_or(CONFIG.config.default_lang.clone())).as_str());
     let mut ttl = ttl;
 
     if ttl > &86400 {
@@ -98,7 +98,7 @@ pub fn set_summarize_cache(url: &str, content: &str, ttl: &u64) {
 
 pub fn get_robotstxt_cache(domain: &str) -> Option<String> {
     let mut connection = REDIS_CLIENT.as_ref()?.get_connection().ok()?;
-    let key = gen_key("robotstxt", xxh64(domain.as_bytes(), 0).to_string().as_str());
+    let key = gen_key("robotstxt", domain);
     tracing::debug!("Checking robots.txt cache for key: {}", key);
     connection.get(&key).ok()
 }
@@ -109,7 +109,7 @@ pub fn set_robotstxt_cache(domain: &str, content: &str) {
         None => return,
     };
 
-    let key = gen_key("robotstxt", xxh64(domain.as_bytes(), 0).to_string().as_str());
+    let key = gen_key("robotstxt", domain);
     tracing::debug!("Setting robots.txt cache for key: {key} ({domain})");
 
     match connection.set_ex::<&String, &str, String>(&key, content, 86400) {

@@ -13,6 +13,7 @@ pub struct IServer {
 #[derive(Deserialize, Debug, Clone)]
 pub struct IConfig {
     pub ignore_robots_txt: bool,
+    pub default_lang: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
