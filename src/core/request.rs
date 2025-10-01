@@ -151,10 +151,19 @@ pub async fn is_allowed_scraping(url: &Url) -> bool {
                 }
             };
 
-            let (content, _) = match get(robots_url.as_str()).await {
-                Ok(x) => x,
+            let response = match get_with_options(robots_url.as_str(), &None).await {
+                Ok(resp) => resp,
                 Err(e) => {
                     tracing::debug!("Failed to fetch robots.txt from '{}': {}", robots_url, e);
+                    cache::set_robotstxt_cache(domain, "");
+                    return true;
+                }
+            };
+
+            let content = match response.text().await {
+                Ok(x) => x,
+                Err(e) => {
+                    tracing::debug!("Failed to read robots.txt content from '{}': {}", robots_url, e);
                     cache::set_robotstxt_cache(domain, "");
                     return true;
                 }
