@@ -9,18 +9,18 @@ use crate::{config::CONFIG, core::summary::{def::SummarizeArguments, summary}, s
 pub struct ReqParams {
     url: Option<String>,
     lang: Option<String>,
-    #[serde(rename = "followRedirects")]
-    follow_redirects: Option<bool>,
     #[serde(rename = "userAgent")]
     user_agent: Option<String>,
-    #[serde(rename = "responseTimeout")]
-    response_timeout: Option<u64>,
-    #[serde(rename = "operationTimeout")]
-    operation_timeout: Option<u64>,
-    #[serde(rename = "contentLengthLimit")]
-    content_length_limit: Option<usize>,
-    #[serde(rename = "contentLengthRequired")]
-    content_length_required: Option<bool>,
+    // #[serde(rename = "followRedirects")]
+    // follow_redirects: Option<bool>,
+    // #[serde(rename = "responseTimeout")]
+    // response_timeout: Option<u64>,
+    // #[serde(rename = "operationTimeout")]
+    // operation_timeout: Option<u64>,
+    // #[serde(rename = "contentLengthLimit")]
+    // content_length_limit: Option<usize>,
+    // #[serde(rename = "contentLengthRequired")]
+    // content_length_required: Option<bool>,
     #[serde(rename = "secretKey")]
     secret_key: Option<String>,
 }
@@ -59,12 +59,12 @@ pub async fn handler(Query(params): Query<ReqParams>) -> AppResult<impl IntoResp
     let arguments = SummarizeArguments {
         url: url.clone(),
         lang: params.lang,
-        follow_redirects: params.follow_redirects,
         user_agent: params.user_agent,
-        response_timeout: params.response_timeout,
-        operation_timeout: params.operation_timeout,
-        content_length_limit: params.content_length_limit,
-        content_length_required: params.content_length_required,
+        // follow_redirects: params.follow_redirects,
+        // response_timeout: params.response_timeout,
+        // operation_timeout: params.operation_timeout,
+        // content_length_limit: params.content_length_limit,
+        // content_length_required: params.content_length_required,
     };
 
     let summary = summary(arguments).await;

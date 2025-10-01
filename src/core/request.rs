@@ -59,24 +59,24 @@ pub struct RequestOptions {
     pub accept_mime: Option<String>,
     pub headers: Option<HeaderMap>,
     pub lang: Option<String>,
-    pub follow_redirects: Option<bool>,
     pub user_agent_string: Option<String>,
-    pub response_timeout: Option<u64>,
-    pub operation_timeout: Option<u64>,
-    pub content_length_limit: Option<usize>,
-    pub content_length_required: Option<bool>,
+    // pub follow_redirects: Option<bool>,
+    // pub response_timeout: Option<u64>,
+    // pub operation_timeout: Option<u64>,
+    // pub content_length_limit: Option<usize>,
+    // pub content_length_required: Option<bool>,
 }
 
 impl From<&SummarizeArguments> for RequestOptions {
     fn from(args: &SummarizeArguments) -> Self {
         RequestOptions {
             lang: args.lang.clone(),
-            follow_redirects: args.follow_redirects,
             user_agent_string: args.user_agent.clone(),
-            response_timeout: args.response_timeout,
-            operation_timeout: args.operation_timeout,
-            content_length_limit: args.content_length_limit,
-            content_length_required: args.content_length_required,
+            // follow_redirects: args.follow_redirects,
+            // response_timeout: args.response_timeout,
+            // operation_timeout: args.operation_timeout,
+            // content_length_limit: args.content_length_limit,
+            // content_length_required: args.content_length_required,
             ..Default::default()
         }
     }

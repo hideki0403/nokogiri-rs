@@ -63,12 +63,12 @@ pub trait SummarizeHandler: Send + Sync {
 pub struct SummarizeArguments {
     pub url: Url,
     pub lang: Option<String>,
-    pub follow_redirects: Option<bool>,
     pub user_agent: Option<String>,
-    pub response_timeout: Option<u64>,
-    pub operation_timeout: Option<u64>,
-    pub content_length_limit: Option<usize>,
-    pub content_length_required: Option<bool>,
+    // pub follow_redirects: Option<bool>,
+    // pub response_timeout: Option<u64>,
+    // pub operation_timeout: Option<u64>,
+    // pub content_length_limit: Option<usize>,
+    // pub content_length_required: Option<bool>,
 }
 
 /* oEmbed */
