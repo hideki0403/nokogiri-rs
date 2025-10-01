@@ -93,7 +93,7 @@ impl ResponseWrapper {
     }
 
     pub async fn text(self) -> Option<String> {
-        Some(self.response.text().await.ok()?)
+        self.response.text().await.ok()
     }
 
     pub fn ttl(&self) -> u64 {
