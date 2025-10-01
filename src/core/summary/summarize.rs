@@ -4,14 +4,14 @@ use scraper::Html;
 use htmlentity::{self, entity::ICodedDataTrait};
 use crate::core::{request, summary::{def::*, selector, utility::{resolve_absolute_url, select_attr, select_text, text_clamp, url_exists_check}}};
 
-pub async fn resolve_oembed(url: &Url, href: Option<String>) -> Option<Player> {
+pub async fn resolve_oembed(url: &Url, href: Option<String>, args: &SummarizeArguments) -> Option<Player> {
     if href.is_none() {
         return None;
     }
 
     let href = resolve_absolute_url(url, &href.unwrap())?;
-    let (response, _) = request::get(&href).await.ok()?;
-    let oembed = serde_json::from_str::<OEmbedData>(&response).ok()?;
+    let response = request::get(&href, &args.into()).await.ok()?;
+    let oembed = serde_json::from_str::<OEmbedData>(&response.text().await?.as_str()).ok()?;
 
     if oembed.version != "1.0" && oembed.r#type != "video" && oembed.r#type != "rich" {
         tracing::debug!("oembed type is not video or rich: {}", oembed.r#type);
@@ -116,11 +116,11 @@ pub fn resolve_player(url: &Url, html: &Html, search_with_twitter_player: bool) 
     })
 }
 
-pub async fn generic_summarize(url: &Url, str_html: String) -> Option<SummaryResult> {
-    execute_summarize(url, str_html, &GenericSummarizeHandler).await
+pub async fn generic_summarize(url: &Url, str_html: String, args: &SummarizeArguments) -> Option<SummaryResult> {
+    execute_summarize(url, str_html, args, &GenericSummarizeHandler).await
 }
 
-pub async fn execute_summarize(url: &Url, str_html: String, handler: &dyn SummarizeHandler) -> Option<SummaryResult> {
+pub async fn execute_summarize(url: &Url, str_html: String, args: &SummarizeArguments, handler: &dyn SummarizeHandler) -> Option<SummaryResult> {
     let html = Html::parse_document(str_html.as_str());
 
     let title = handler.title(url, &html);
@@ -143,7 +143,7 @@ pub async fn execute_summarize(url: &Url, str_html: String, handler: &dyn Summar
 
     let favicon = handler.icon(url, &html);
     let oembed_href = handler.extract_oembed_url(url, &html);
-    let (oembed, favicon_available) = tokio::join!(handler.oembed(url, oembed_href), handler.icon_exists(&favicon));
+    let (oembed, favicon_available) = tokio::join!(handler.oembed(url, oembed_href, args), handler.icon_exists(&favicon));
 
     let player = oembed
         .or_else(|| handler.player(url, &html, is_large_summary_image))
@@ -245,8 +245,8 @@ impl SummarizeHandler for GenericSummarizeHandler {
         select_attr(&html, "href", &[&selector::LINK_JSON_OEMBED_TYPE])
     }
 
-    async fn oembed(&self, url: &Url, href: Option<String>) -> Option<Player> {
-        resolve_oembed(url, href).await
+    async fn oembed(&self, url: &Url, href: Option<String>, args: &SummarizeArguments) -> Option<Player> {
+        resolve_oembed(url, href, args).await
     }
 
     fn player(&self, url: &Url, html: &Html, is_summary_large_image: bool) -> Option<Player> {

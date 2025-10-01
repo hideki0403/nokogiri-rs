@@ -3,7 +3,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Deserialize;
 use url::Url;
-use crate::core::{request, summary::def::{SummalyHandler, SummaryResult, SummaryResultWithMetadata}};
+use crate::core::{request, summary::def::{SummalyHandler, SummarizeArguments, SummaryResult, SummaryResultWithMetadata}};
 
 static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^https?:\/\/((www|mobile)\.)?(twitter|x)\.com\/\w+\/status\/(?<id>\d+)([\/?#].*)?$").unwrap()
@@ -21,9 +21,10 @@ impl SummalyHandler for TwitterHandler {
         URL_REGEX.is_match(url.as_str())
     }
 
-    async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata> {
+    async fn summarize(&self, args: &SummarizeArguments) -> Option<SummaryResultWithMetadata> {
+        let url = &args.url;
         let id = URL_REGEX.captures(url.as_str())?.name("id")?.as_str();
-        let response = request::get_with_options(format!("https://cdn.syndication.twimg.com/tweet-result?id={id}&token=x&lang=en").as_str(), &None).await;
+        let response = request::get(format!("https://cdn.syndication.twimg.com/tweet-result?id={id}&token=x&lang=en").as_str(), &args.into()).await;
 
         if response.is_err() {
             return None;
@@ -31,7 +32,7 @@ impl SummalyHandler for TwitterHandler {
         let response = response.unwrap().text().await;
 
         let is_twitter = url.domain().unwrap_or("").to_lowercase().contains("twitter");
-        let tweet = serde_json::from_str::<TweetData>(response.as_ref().ok()?).ok()?;
+        let tweet = serde_json::from_str::<TweetData>(response.as_ref()?).ok()?;
         let data_available = match &tweet.__typename {
             Some(t) => t == "Tweet",
             None => false,

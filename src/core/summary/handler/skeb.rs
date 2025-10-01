@@ -5,7 +5,7 @@ use regex::Regex;
 use reqwest::StatusCode;
 use serde::{de::DeserializeOwned, Deserialize};
 use url::Url;
-use crate::core::{request::{self, RequestOptions}, summary::{def::{SummalyHandler, SummaryResult, SummaryResultWithMetadata}, utility::text_clamp}};
+use crate::core::{request::{self, RequestOptions}, summary::{def::{SummalyHandler, SummarizeArguments, SummaryResult, SummaryResultWithMetadata}, utility::text_clamp}};
 
 static COOKIE_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r#"document\.cookie\s?=\s?"(?<cookie>.*)";"#).unwrap()
@@ -15,8 +15,8 @@ static ACCEPTABLE_URL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^https:\/\/([a-z0-9-]+\.)?skeb\.jp\/@(?<user>\w+)(\/works\/(?<work>[0-9]+))?\/?$").unwrap()
 });
 
-static REQUEST_OPTIONS: Lazy<Option<RequestOptions>> = Lazy::new(|| Some(RequestOptions {
-    user_agent: Some(request::UserAgentList::Chrome),
+static REQUEST_OPTIONS: Lazy<RequestOptions> = Lazy::new(|| RequestOptions {
+    user_agent: request::UserAgentList::Chrome,
     accept_mime: Some("application/json".to_string()),
     headers: Some({
         let mut headers = HeaderMap::new();
@@ -24,14 +24,14 @@ static REQUEST_OPTIONS: Lazy<Option<RequestOptions>> = Lazy::new(|| Some(Request
         headers
     }),
     ..Default::default()
-}));
+});
 
 pub struct SkebHandler;
 
 impl SkebHandler {
     async fn api_caller<T: DeserializeOwned>(&self, url: &str) -> Option<T> {
         let u = Url::parse(&url).ok()?;
-        let mut response = request::get_with_options(url, &REQUEST_OPTIONS).await.ok()?;
+        let mut response = request::get(url, &REQUEST_OPTIONS).await.ok()?.response;
 
         let is_too_many_requests = response.status() == StatusCode::TOO_MANY_REQUESTS;
         let retry_after_zero = response
@@ -48,7 +48,7 @@ impl SkebHandler {
                 .and_then(|caps| caps.name("cookie").map(|m| m.as_str().to_string()))?;
 
             request::add_cookie(&u, &cookie);
-            response = request::get_with_options(url, &REQUEST_OPTIONS).await.ok()?;
+            response = request::get(url, &REQUEST_OPTIONS).await.ok()?.response;
         }
 
         response.json::<T>().await.ok()
@@ -65,8 +65,8 @@ impl SummalyHandler for SkebHandler {
         ACCEPTABLE_URL_REGEX.is_match(url.as_str())
     }
 
-    async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata> {
-        let caps = ACCEPTABLE_URL_REGEX.captures(url.as_str())?;
+    async fn summarize(&self, args: &SummarizeArguments) -> Option<SummaryResultWithMetadata> {
+        let caps = ACCEPTABLE_URL_REGEX.captures(args.url.as_str())?;
         let user = caps.name("user")?.as_str();
         let work = caps.name("work").map(|m| m.as_str());
 

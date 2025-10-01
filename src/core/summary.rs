@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use crate::{config::CONFIG, core::cache};
+use crate::{config::CONFIG, core::{cache, summary::def::SummarizeArguments}};
 
 pub mod handler;
 pub mod def;
@@ -16,7 +16,8 @@ static ACTIVE_HANDLERS: Lazy<Vec<&'static dyn def::SummalyHandler>> =
             .collect()
     });
 
-pub async fn summary(url: &url::Url) -> Option<def::SummaryResult> {
+pub async fn summary(args: SummarizeArguments) -> Option<def::SummaryResult> {
+    let url = &args.url;
     let cache = cache::get_summarize_cache(url.as_str());
     if let Some(cached) = cache {
         tracing::debug!("Cache hit for URL: {}", url);
@@ -27,7 +28,7 @@ pub async fn summary(url: &url::Url) -> Option<def::SummaryResult> {
         if handler.test(url) {
             tracing::debug!("Using handler: {}", handler.id());
 
-            let summary = match handler.summarize(url).await {
+            let summary = match handler.summarize(&args).await {
                 Some(s) => {
                     let serialized = serde_json::to_string(&s.summary).ok()?;
                     cache::set_summarize_cache(url.as_str(), &serialized, &s.cache_ttl.clamp(300, 86400));

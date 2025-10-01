@@ -6,7 +6,7 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Error as ReqwestMi
 use http_acl_reqwest::{HttpAcl, HttpAclMiddleware};
 use hyper_util::client::legacy::Error as HyperUtilError;
 use url::Url;
-use crate::{config::CONFIG, core::cache};
+use crate::{config::CONFIG, core::{cache, summary::def::SummarizeArguments}};
 
 mod resolver;
 
@@ -35,8 +35,9 @@ pub static CLIENT: Lazy<ClientWithMiddleware> = Lazy::new(|| {
         .build()
 });
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum UserAgentList {
+    #[default]
     Default,
     TwitterBot,
     Chrome,
@@ -54,42 +55,84 @@ impl UserAgentList {
 
 #[derive(Debug, Default)]
 pub struct RequestOptions {
-    pub user_agent: Option<UserAgentList>,
+    pub user_agent: UserAgentList,
     pub accept_mime: Option<String>,
     pub headers: Option<HeaderMap>,
+    pub lang: Option<String>,
+    pub follow_redirects: Option<bool>,
+    pub user_agent_string: Option<String>,
+    pub response_timeout: Option<u64>,
+    pub operation_timeout: Option<u64>,
+    pub content_length_limit: Option<usize>,
+    pub content_length_required: Option<bool>,
 }
 
-pub async fn get(url: &str) -> Result<(String, u64)> {
-    let response = get_with_options(url, &None).await?;
-    let ttl = &response.headers()
-        .get("Cache-Control")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| {
-            s.split(',')
-            .find_map(|part| {
-                let part = part.trim();
-                if part.starts_with("max-age=") {
-                    part[8..].parse::<u64>().ok()
-                } else {
-                    None
-                }
+impl From<&SummarizeArguments> for RequestOptions {
+    fn from(args: &SummarizeArguments) -> Self {
+        RequestOptions {
+            lang: args.lang.clone(),
+            follow_redirects: args.follow_redirects,
+            user_agent_string: args.user_agent.clone(),
+            response_timeout: args.response_timeout,
+            operation_timeout: args.operation_timeout,
+            content_length_limit: args.content_length_limit,
+            content_length_required: args.content_length_required,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ResponseWrapper {
+    pub response: Response
+}
+
+impl ResponseWrapper {
+    pub fn new(response: Response) -> Self {
+        Self { response }
+    }
+
+    pub async fn text(self) -> Option<String> {
+        Some(self.response.text().await.ok()?)
+    }
+
+    pub fn ttl(&self) -> u64 {
+        self.response.headers()
+            .get("Cache-Control")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| {
+                s.split(',')
+                .find_map(|part| {
+                    let part = part.trim();
+                    if part.starts_with("max-age=") {
+                        part[8..].parse::<u64>().ok()
+                    } else {
+                        None
+                    }
+                })
             })
-        })
-        .unwrap_or(300);
-
-    let content = response.text().await?;
-    Ok((content, *ttl))
+            .unwrap_or(300)
+    }
 }
 
-pub async fn get_with_options(url: &str, options: &Option<RequestOptions>) -> Result<Response> {
-    let default_options = RequestOptions::default();
-    let options = options.as_ref().unwrap_or(&default_options);
+impl From<Response> for ResponseWrapper {
+    fn from(response: Response) -> Self {
+        Self::new(response)
+    }
+}
 
+pub async fn get(url: &str, options: &RequestOptions) -> Result<ResponseWrapper> {
     let mut headers = HeaderMap::new();
     headers.insert("Accept", options.accept_mime.as_deref().unwrap_or("text/html,application/xhtml+xml").parse().unwrap());
 
-    if let Some(ua) = &options.user_agent {
-        headers.insert("User-Agent", ua.to_string().parse().unwrap());
+    if let Some(lang) = &options.lang {
+        headers.insert("Accept-Language", lang.parse().unwrap());
+    }
+
+    if &options.user_agent != &UserAgentList::Default {
+        headers.insert("User-Agent", options.user_agent.to_string().parse().unwrap());
+    } else if let Some(ua) = &options.user_agent_string {
+        headers.insert("User-Agent", ua.parse().unwrap());
     }
 
     if let Some(custom_headers) = &options.headers {
@@ -119,7 +162,7 @@ pub async fn get_with_options(url: &str, options: &Option<RequestOptions>) -> Re
         }
     }
 
-    Ok(response?)
+    Ok(response?.into())
 }
 
 pub async fn head(url: &str) -> Result<HeaderMap> {
@@ -151,7 +194,7 @@ pub async fn is_allowed_scraping(url: &Url) -> bool {
                 }
             };
 
-            let response = match get_with_options(robots_url.as_str(), &None).await {
+            let response = match get(robots_url.as_str(), &RequestOptions::default()).await {
                 Ok(resp) => resp,
                 Err(e) => {
                     tracing::debug!("Failed to fetch robots.txt from '{}': {}", robots_url, e);
@@ -161,9 +204,9 @@ pub async fn is_allowed_scraping(url: &Url) -> bool {
             };
 
             let content = match response.text().await {
-                Ok(x) => x,
-                Err(e) => {
-                    tracing::debug!("Failed to read robots.txt content from '{}': {}", robots_url, e);
+                Some(x) => x,
+                None => {
+                    tracing::debug!("Failed to read robots.txt content from '{}'", robots_url);
                     cache::set_robotstxt_cache(domain, "");
                     return true;
                 }

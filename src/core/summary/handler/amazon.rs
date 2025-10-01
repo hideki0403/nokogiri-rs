@@ -3,7 +3,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use scraper::{Html, Selector};
 use url::Url;
-use crate::core::{request, summary::{def::{Player, SummalyHandler, SummarizeHandler, SummaryResultWithMetadata}, selector, summarize::{self, GenericSummarizeHandler}}};
+use crate::core::{request::{self, RequestOptions}, summary::{def::{Player, SummalyHandler, SummarizeArguments, SummarizeHandler, SummaryResultWithMetadata}, selector, summarize::{self, GenericSummarizeHandler}}};
 
 static DOMAIN_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^(www\.)?((amazon(\.co|com)?(\.[a-z]{2})?|amzn\.[a-z]{2,4}))$").unwrap()
@@ -28,14 +28,14 @@ impl SummalyHandler for AmazonHandler {
         DOMAIN_REGEX.is_match(host)
     }
 
-    async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata> {
-        let response = request::get_with_options(url.as_str(), &Some(request::RequestOptions {
-            user_agent: Some(request::UserAgentList::TwitterBot),
-            ..Default::default()
-        })).await.ok()?;
+    async fn summarize(&self, args: &SummarizeArguments) -> Option<SummaryResultWithMetadata> {
+        let mut options: RequestOptions = args.into();
+        options.user_agent = request::UserAgentList::TwitterBot;
 
-        let body = response.text().await.ok()?;
-        let summarized = summarize::execute_summarize(url, body, &AmazonSummarizeHandler).await?;
+        let response = request::get(args.url.as_str(), &options).await.ok()?;
+
+        let body = response.text().await?;
+        let summarized = summarize::execute_summarize(&args.url, body, args, &AmazonSummarizeHandler).await?;
 
         Some(SummaryResultWithMetadata {
             summary: summarized,
@@ -76,7 +76,7 @@ impl SummarizeHandler for AmazonSummarizeHandler {
         None
     }
 
-    async fn oembed(&self, _url: &Url, _href: Option<String>) -> Option<Player> {
+    async fn oembed(&self, _url: &Url, _href: Option<String>, _args: &SummarizeArguments) -> Option<Player> {
         None
     }
 

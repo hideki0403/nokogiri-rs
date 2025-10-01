@@ -38,7 +38,7 @@ pub struct SummaryResultWithMetadata {
 pub trait SummalyHandler: Send + Sync {
     fn id(&self) -> &str;
     fn test(&self, url: &Url) -> bool;
-    async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata>;
+    async fn summarize(&self, args: &SummarizeArguments) -> Option<SummaryResultWithMetadata>;
 }
 
 /* Summarize */
@@ -52,12 +52,23 @@ pub trait SummarizeHandler: Send + Sync {
     fn sitename(&self, url: &Url, html: &Html) -> Option<String>;
     fn thumbnail(&self, url: &Url, html: &Html) -> Option<String>;
     fn extract_oembed_url(&self, url: &Url, html: &Html) -> Option<String>;
-    async fn oembed(&self, url: &Url, href: Option<String>) -> Option<Player>;
+    async fn oembed(&self, url: &Url, href: Option<String>, args: &SummarizeArguments) -> Option<Player>;
     fn player(&self, url: &Url, html: &Html, is_summary_large_image: bool) -> Option<Player>;
     fn sensitive(&self, url: &Url, html: &Html) -> Option<bool>;
     fn activity_pub(&self, url: &Url, html: &Html) -> Option<String>;
     fn fediverse_creator(&self, url: &Url, html: &Html) -> Option<String>;
     fn summary_large_image(&self, url: &Url, html: &Html) -> bool;
+}
+
+pub struct SummarizeArguments {
+    pub url: Url,
+    pub lang: Option<String>,
+    pub follow_redirects: Option<bool>,
+    pub user_agent: Option<String>,
+    pub response_timeout: Option<u64>,
+    pub operation_timeout: Option<u64>,
+    pub content_length_limit: Option<usize>,
+    pub content_length_required: Option<bool>,
 }
 
 /* oEmbed */

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use scraper::Html;
 use url::Url;
-use crate::core::{request, summary::{def::{Player, SummalyHandler, SummarizeHandler, SummaryResultWithMetadata}, summarize::{self, GenericSummarizeHandler}}};
+use crate::core::{request::{self, RequestOptions}, summary::{def::{Player, SummalyHandler, SummarizeArguments, SummarizeHandler, SummaryResultWithMetadata}, summarize::{self, GenericSummarizeHandler}}};
 
 pub struct SpotifyHandler;
 
@@ -15,14 +15,13 @@ impl SummalyHandler for SpotifyHandler {
         url.domain().unwrap_or("") == "open.spotify.com"
     }
 
-    async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata> {
-        let response = request::get_with_options(url.as_str(), &Some(request::RequestOptions {
-            user_agent: Some(request::UserAgentList::TwitterBot),
-            ..Default::default()
-        })).await.ok()?;
+    async fn summarize(&self, args: &SummarizeArguments) -> Option<SummaryResultWithMetadata> {
+        let url = &args.url;
+        let mut options: RequestOptions = args.into();
+        options.user_agent = request::UserAgentList::TwitterBot;
 
-        let body = response.text().await.ok()?;
-        let summarized = summarize::execute_summarize(url, body, &SpotifySummarizeHandler).await?;
+        let response = request::get(url.as_str(), &options).await.ok()?;
+        let summarized = summarize::execute_summarize(url, response.text().await?, args, &SpotifySummarizeHandler).await?;
 
         Some(SummaryResultWithMetadata {
             summary: summarized,
@@ -63,8 +62,8 @@ impl SummarizeHandler for SpotifySummarizeHandler {
         GenericSummarizeHandler.extract_oembed_url(url, html)
     }
 
-    async fn oembed(&self, url: &Url, href: Option<String>) -> Option<Player> {
-        GenericSummarizeHandler.oembed(url, href).await
+    async fn oembed(&self, url: &Url, href: Option<String>, args: &SummarizeArguments) -> Option<Player> {
+        GenericSummarizeHandler.oembed(url, href, args).await
     }
 
     fn player(&self, _url: &Url, _html: &Html, _is_summary_large_image: bool) -> Option<Player> {

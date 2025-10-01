@@ -3,11 +3,24 @@ use reqwest::StatusCode;
 use serde::Deserialize;
 use url::Url;
 use urlencoding::decode;
-use crate::{config::CONFIG, core::summary::summary, server::AppResult};
+use crate::{config::CONFIG, core::summary::{def::SummarizeArguments, summary}, server::AppResult};
 
 #[derive(Deserialize, Debug)]
 pub struct ReqParams {
     url: Option<String>,
+    lang: Option<String>,
+    #[serde(rename = "followRedirects")]
+    follow_redirects: Option<bool>,
+    #[serde(rename = "userAgent")]
+    user_agent: Option<String>,
+    #[serde(rename = "responseTimeout")]
+    response_timeout: Option<u64>,
+    #[serde(rename = "operationTimeout")]
+    operation_timeout: Option<u64>,
+    #[serde(rename = "contentLengthLimit")]
+    content_length_limit: Option<usize>,
+    #[serde(rename = "contentLengthRequired")]
+    content_length_required: Option<bool>,
     #[serde(rename = "secretKey")]
     secret_key: Option<String>,
 }
@@ -43,7 +56,18 @@ pub async fn handler(Query(params): Query<ReqParams>) -> AppResult<impl IntoResp
         return Ok((StatusCode::BAD_REQUEST, "Only http and https are supported").into_response());
     }
 
-    let summary = summary(&url).await;
+    let arguments = SummarizeArguments {
+        url: url.clone(),
+        lang: params.lang,
+        follow_redirects: params.follow_redirects,
+        user_agent: params.user_agent,
+        response_timeout: params.response_timeout,
+        operation_timeout: params.operation_timeout,
+        content_length_limit: params.content_length_limit,
+        content_length_required: params.content_length_required,
+    };
+
+    let summary = summary(arguments).await;
     if summary.is_none() {
         return Ok((StatusCode::INTERNAL_SERVER_ERROR, "Failed to summarize the URL").into_response());
     }
