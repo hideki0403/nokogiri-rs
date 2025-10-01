@@ -11,6 +11,11 @@ pub struct IServer {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+pub struct IConfig {
+    pub ignore_robots_txt: bool,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct ISecurity {
     pub secret_key: String,
     pub block_non_global_ips: bool,
@@ -45,6 +50,7 @@ pub struct ICache {
 #[derive(Deserialize, Debug, Clone)]
 pub struct AppConfig {
     pub server: IServer,
+    pub config: IConfig,
     pub security: ISecurity,
     pub plugins: IPlugins,
     pub cache: ICache,

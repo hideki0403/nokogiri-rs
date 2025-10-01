@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use url::Url;
-use crate::core::{request, summary::{def::{SummalyHandler, SummaryResultWithMetadata}, summarize}};
+use crate::{config::CONFIG, core::{request, summary::{def::{SummalyHandler, SummaryResultWithMetadata}, summarize}}};
 
 pub struct GeneralHandler;
 
@@ -15,7 +15,7 @@ impl SummalyHandler for GeneralHandler {
     }
 
     async fn summarize(&self, url: &Url) -> Option<SummaryResultWithMetadata> {
-        if !request::is_allowed_scraping(url).await {
+        if !&CONFIG.config.ignore_robots_txt && !request::is_allowed_scraping(url).await {
             tracing::info!("Scraping disallowed by robots.txt: {}", url);
             return None;
         }
