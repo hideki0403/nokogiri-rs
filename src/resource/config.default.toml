@@ -5,7 +5,7 @@ port = 3030
 [general]
 ignore_robots_txt = false
 default_lang = "en-US"
-max_redirect_hops = 5 # set 0 to disable
+max_redirect_hops = 5 # set 0 to disallow redirects
 response_timeout = 20000 # milliseconds
 operation_timeout = 60000 # milliseconds
 content_length_limit = "10 MB" # set 0 to disable, you can use units like "10 MB", "500 KB", "1 GB" (https://docs.rs/parse-size/latest/parse_size/)
