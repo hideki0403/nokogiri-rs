@@ -200,7 +200,11 @@ pub async fn get(url: &str, options: &RequestOptions) -> Result<ResponseWrapper>
         if is_ignore_error {
             tracing::info!("Failed to resolve host for '{}'. The resolved IP address may have been blocked by ACL.", url);
         } else {
-            tracing::error!("Failed to fetch '{}' -> {}", url, e);
+            let mut root_cause: &dyn std::error::Error = &e;
+            while let Some(source) = root_cause.source() {
+                root_cause = source;
+            }
+            tracing::error!("Failed to fetch '{}' -> {}", url, root_cause);
         }
     }
 
