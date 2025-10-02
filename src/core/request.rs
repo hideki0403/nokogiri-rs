@@ -1,11 +1,12 @@
-use std::{env, error::Error, sync::Arc};
+use std::{env, error::Error, sync::Arc, time::Duration};
 use anyhow::Result;
 use once_cell::sync::Lazy;
-use reqwest::{cookie::Jar, header::HeaderMap, Client, Response};
+use reqwest::{cookie::Jar, header::HeaderMap, redirect::Policy, Client, Response};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Error as ReqwestMiddlewareError};
 use http_acl_reqwest::{HttpAcl, HttpAclMiddleware};
 use hyper_util::client::legacy::Error as HyperUtilError;
 use url::Url;
+use parse_size::parse_size;
 use crate::{config::CONFIG, core::{cache, summary::def::SummarizeArguments}};
 
 mod resolver;
@@ -21,10 +22,13 @@ pub static CLIENT: Lazy<ClientWithMiddleware> = Lazy::new(|| {
         .build();
 
     let middleware = HttpAclMiddleware::new(acl);
-
-    // TODO: options
+    let response_timeout = Duration::from_millis(CONFIG.general.response_timeout);
     let client = Client::builder()
         .user_agent(UserAgentList::Default.to_string())
+        .redirect(Policy::limited(CONFIG.general.max_redirect_hops as usize))
+        .timeout(Duration::from_millis(CONFIG.general.operation_timeout))
+        .read_timeout(response_timeout)
+        .connect_timeout(response_timeout)
         .cookie_provider(Arc::clone(&COOKIE_JAR))
         .dns_resolver(middleware.with_dns_resolver(Arc::new(resolver::CustomDnsResolver::default())))
         .build()
@@ -33,6 +37,16 @@ pub static CLIENT: Lazy<ClientWithMiddleware> = Lazy::new(|| {
     ClientBuilder::new(client)
         .with(middleware)
         .build()
+});
+
+pub static CONTENT_LENGTH_LIMIT: Lazy<usize> = Lazy::new(|| {
+    match parse_size(&CONFIG.general.content_length_limit) {
+        Ok(size) => size as usize,
+        Err(e) => {
+            tracing::error!("Invalid content length limit in config: {}. Using default 10 MB.", e);
+            10 * 1024 * 1024
+        }
+    }
 });
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -92,8 +106,34 @@ impl ResponseWrapper {
         Self { response }
     }
 
-    pub async fn text(self) -> Option<String> {
-        self.response.text().await.ok()
+    pub async fn text(mut self) -> Option<String> {
+        if *CONTENT_LENGTH_LIMIT == 0 {
+            tracing::debug!("Content length limit is disabled, reading entire response body");
+            return self.response.text().await.ok();
+        }
+
+        let mut received_bytes = Vec::new();
+        let mut received_size = 0;
+
+        while let Some(chunk) = self.response.chunk().await.transpose() {
+            let chunk = match chunk {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::error!("Failed to read chunk from response body: {}", e);
+                    return None;
+                }
+            };
+
+            received_size += chunk.len();
+            if received_size > *CONTENT_LENGTH_LIMIT {
+                tracing::warn!("Response body exceeded the content length limit of {:?} bytes", *CONTENT_LENGTH_LIMIT);
+                return None;
+            }
+            received_bytes.extend_from_slice(&chunk);
+        }
+
+        tracing::debug!("Received {} bytes", received_bytes.len());
+        String::from_utf8(received_bytes).ok()
     }
 
     pub fn ttl(&self) -> u64 {
@@ -127,7 +167,7 @@ pub async fn get(url: &str, options: &RequestOptions) -> Result<ResponseWrapper>
 
     let lang = options.lang
         .as_ref()
-        .unwrap_or(&CONFIG.config.default_lang);
+        .unwrap_or(&CONFIG.general.default_lang);
 
     headers.insert("Accept-Language", lang.parse().unwrap());
 
