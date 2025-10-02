@@ -187,6 +187,7 @@ pub async fn execute_summarize(url: &Url, str_html: String, args: &SummarizeArgu
         activity_pub,
         fediverse_creator,
         large_card: Some(is_large_summary_image),
+        url: None,
     })
 }
 

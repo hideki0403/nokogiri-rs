@@ -29,7 +29,11 @@ pub async fn summary(args: SummarizeArguments) -> Option<def::SummaryResult> {
             tracing::debug!("Using handler: {}", handler.id());
 
             let summary = match handler.summarize(&args).await {
-                Some(s) => {
+                Some(mut s) => {
+                    if s.summary.url.is_none() {
+                        s.summary.url = Some(url.as_str().to_string());
+                    }
+
                     let serialized = serde_json::to_string(&s.summary).ok()?;
                     cache::set_summarize_cache(url.as_str(), args.lang.clone(), &serialized, &s.cache_ttl.clamp(300, 86400));
                     Some(s.summary)
