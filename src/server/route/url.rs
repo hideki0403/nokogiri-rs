@@ -1,4 +1,4 @@
-use axum::{extract::Query, response::IntoResponse, Json};
+use axum::{extract::Query, http::HeaderMap, response::IntoResponse, Json};
 use reqwest::StatusCode;
 use serde::Deserialize;
 use url::Url;
@@ -72,5 +72,9 @@ pub async fn handler(Query(params): Query<ReqParams>) -> AppResult<impl IntoResp
         return Ok((StatusCode::INTERNAL_SERVER_ERROR, "Failed to summarize the URL").into_response());
     }
 
-    Ok(Json(summary.unwrap()).into_response())
+    let mut headers = HeaderMap::new();
+    headers.insert("Cache-Control", "public, max-age=604800".parse().unwrap());
+
+    let response = Json(summary.unwrap()).into_response();
+    Ok((headers, response).into_response())
 }
