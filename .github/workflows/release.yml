@@ -1,0 +1,181 @@
+name: release
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - 'src/**'
+      - 'Cargo.toml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  prepare:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.app.outputs.release }}
+      app-name: ${{ steps.app.outputs.app-name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Get app manifest
+        id: app
+        env:
+          TZ: 'Asia/Tokyo'
+        run: | # shell
+          MANIFEST=$(cargo read-manifest)
+          CURRENT_VERSION=$(echo $MANIFEST | jq -r .version)
+          APP_NAME=$(echo $MANIFEST | jq -r .name)
+          HEAD=$(date +'%Y.%-m.')
+
+          if [[ "$CURRENT_VERSION" == "$HEAD"* ]]; then
+            PATCH=$(echo "$CURRENT_VERSION" | awk -F. '{print $NF}' | awk '{print $1 + 1}')
+          else
+            PATCH=0
+          fi
+
+          echo "release=$HEAD$PATCH" >> $GITHUB_OUTPUT
+          echo "app-name=$APP_NAME" >> $GITHUB_OUTPUT
+
+  build:
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - runner: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - runner: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+          - runner: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
+          - runner: ubuntu-latest
+            target: armv7-unknown-linux-musleabihf
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+          - runner: windows-latest
+            target: aarch64-pc-windows-msvc
+          - runner: macos-latest
+            target: x86_64-apple-darwin
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Cache rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install dependencies on Windows
+        if: runner.os == 'Windows'
+        run: choco install make --yes
+
+      - name: Install dependencies on MacOS
+        if: runner.os == 'macOS'
+        run: brew install make
+
+      - name: Install cross
+        if: runner.os == 'Linux'
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cross
+          git: https://github.com/cross-rs/cross
+
+      - name: Install cargo-edit
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-edit
+
+      - name: Set version in Cargo.toml
+        run: cargo set-version ${{ needs.prepare.outputs.version }}
+
+      - name: Build with cross
+        if: runner.os == 'Linux'
+        run: cross build --release --target ${{ matrix.target }} --verbose
+
+      - name: Build
+        if: runner.os != 'Linux'
+        run: |
+          rustup target add ${{ matrix.target }}
+          cargo build --release --target ${{ matrix.target }} --verbose
+
+      - name: Package artifact
+        id: artifact
+        shell: bash
+        run: | # shell
+          ARTIFACT_DIR="artifacts"
+          mkdir -p $ARTIFACT_DIR
+
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            EXTENSION=".exe"
+          else
+            EXTENSION=""
+          fi
+
+          ARTIFACT_NAME="${{ needs.prepare.outputs.app-name }}-${{ needs.prepare.outputs.version }}-${{ matrix.target }}${EXTENSION}"
+          SOURCE_PATH="target/${{ matrix.target }}/release/${{ needs.prepare.outputs.app-name }}${EXTENSION}"
+
+          echo "Moving $SOURCE_PATH to $ARTIFACT_DIR/$ARTIFACT_NAME"
+          mv "$SOURCE_PATH" "$ARTIFACT_DIR/$ARTIFACT_NAME"
+
+          echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: artifacts/${{ steps.artifact.outputs.name }}
+
+  release:
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+      - build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install cargo-edit
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-edit
+
+      - name: Rewrite version in Cargo.toml
+        run: cargo set-version ${{ needs.prepare.outputs.version }}
+
+      - name: Push Cargo.toml changes
+        run: | # shell
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add ./Cargo* ./**/Cargo*
+          git commit -m "release: ${{ needs.prepare.outputs.version }}" -m "[skip ci]"
+          git push
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ needs.prepare.outputs.version }}
+          tag_name: v${{ needs.prepare.outputs.version }}
+          files: artifacts/*/*
+          token: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: true
