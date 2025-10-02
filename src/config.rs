@@ -11,9 +11,13 @@ pub struct IServer {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct IConfig {
+pub struct IGeneral {
     pub ignore_robots_txt: bool,
     pub default_lang: String,
+    pub max_redirect_hops: u32,
+    pub response_timeout: u64,
+    pub operation_timeout: u64,
+    pub content_length_limit: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -51,7 +55,7 @@ pub struct ICache {
 #[derive(Deserialize, Debug, Clone)]
 pub struct AppConfig {
     pub server: IServer,
-    pub config: IConfig,
+    pub general: IGeneral,
     pub security: ISecurity,
     pub plugins: IPlugins,
     pub cache: ICache,

@@ -62,7 +62,7 @@ fn gen_key(category: &str, identifier: &str) -> String {
 
 pub fn get_summarize_cache(url: &str, lang: Option<String>) -> Option<String> {
     let mut connection = REDIS_CLIENT.as_ref()?.get_connection().ok()?;
-    let key = gen_key("summarize", format!("{}:{}", url, lang.unwrap_or(CONFIG.config.default_lang.clone())).as_str());
+    let key = gen_key("summarize", format!("{}:{}", url, lang.unwrap_or(CONFIG.general.default_lang.clone())).as_str());
     tracing::debug!("Checking cache for key: {}", key);
     connection.get(&key).ok()
 }
@@ -78,7 +78,7 @@ pub fn set_summarize_cache(url: &str, lang: Option<String>, content: &str, ttl: 
         None => return,
     };
 
-    let key = gen_key("summarize", format!("{}:{}", url, lang.unwrap_or(CONFIG.config.default_lang.clone())).as_str());
+    let key = gen_key("summarize", format!("{}:{}", url, lang.unwrap_or(CONFIG.general.default_lang.clone())).as_str());
     let mut ttl = ttl;
 
     if ttl > &86400 {
