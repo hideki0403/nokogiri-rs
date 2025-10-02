@@ -162,7 +162,7 @@ jobs:
         run: | # shell
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add ./Cargo* ./**/Cargo*
+          git add ./Cargo*
           git commit -m "release: ${{ needs.prepare.outputs.version }}" -m "[skip ci]"
           git push
 
