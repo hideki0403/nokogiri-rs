@@ -1,7 +1,13 @@
+use crate::core::{
+    request::{self, RequestOptions},
+    summary::{
+        def::{Player, SummalyHandler, SummarizeArguments, SummarizeHandler, SummaryResultWithMetadata},
+        summarize::{self, GenericSummarizeHandler},
+    },
+};
 use async_trait::async_trait;
 use scraper::Html;
 use url::Url;
-use crate::core::{request::{self, RequestOptions}, summary::{def::{Player, SummalyHandler, SummarizeArguments, SummarizeHandler, SummaryResultWithMetadata}, summarize::{self, GenericSummarizeHandler}}};
 
 pub struct SpotifyHandler;
 
@@ -86,4 +92,3 @@ impl SummarizeHandler for SpotifySummarizeHandler {
         false
     }
 }
-

@@ -1,13 +1,16 @@
-use std::{env, error::Error, sync::Arc, time::Duration};
+use crate::{
+    config::CONFIG,
+    core::{cache, summary::def::SummarizeArguments},
+};
 use anyhow::Result;
-use once_cell::sync::Lazy;
-use reqwest::{cookie::Jar, header::HeaderMap, redirect::Policy, Client, Response};
-use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Error as ReqwestMiddlewareError};
 use http_acl_reqwest::{HttpAcl, HttpAclMiddleware};
 use hyper_util::client::legacy::Error as HyperUtilError;
-use url::Url;
+use once_cell::sync::Lazy;
 use parse_size::parse_size;
-use crate::{config::CONFIG, core::{cache, summary::def::SummarizeArguments}};
+use reqwest::{Client, Response, cookie::Jar, header::HeaderMap, redirect::Policy};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Error as ReqwestMiddlewareError};
+use std::{env, error::Error, sync::Arc, time::Duration};
+use url::Url;
 
 mod resolver;
 
@@ -34,18 +37,14 @@ pub static CLIENT: Lazy<ClientWithMiddleware> = Lazy::new(|| {
         .build()
         .unwrap();
 
-    ClientBuilder::new(client)
-        .with(middleware)
-        .build()
+    ClientBuilder::new(client).with(middleware).build()
 });
 
-pub static CONTENT_LENGTH_LIMIT: Lazy<usize> = Lazy::new(|| {
-    match parse_size(&CONFIG.general.content_length_limit) {
-        Ok(size) => size as usize,
-        Err(e) => {
-            tracing::error!("Invalid content length limit in config: {}. Using default 10 MB.", e);
-            10 * 1024 * 1024
-        }
+pub static CONTENT_LENGTH_LIMIT: Lazy<usize> = Lazy::new(|| match parse_size(&CONFIG.general.content_length_limit) {
+    Ok(size) => size as usize,
+    Err(e) => {
+        tracing::error!("Invalid content length limit in config: {}. Using default 10 MB.", e);
+        10 * 1024 * 1024
     }
 });
 
@@ -60,9 +59,17 @@ pub enum UserAgentList {
 impl UserAgentList {
     pub fn to_string(&self) -> String {
         match self {
-            UserAgentList::Default => format!("Mozilla/5.0 (compatible; {}; {}) SummalyBot/1.0 {}/{}", env::consts::OS, env::consts::ARCH, env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
+            UserAgentList::Default => format!(
+                "Mozilla/5.0 (compatible; {}; {}) SummalyBot/1.0 {}/{}",
+                env::consts::OS,
+                env::consts::ARCH,
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION")
+            ),
             UserAgentList::TwitterBot => "Twitterbot/1.0".to_string(),
-            UserAgentList::Chrome => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36".to_string(),
+            UserAgentList::Chrome => {
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36".to_string()
+            }
         }
     }
 }
@@ -98,7 +105,7 @@ impl From<&SummarizeArguments> for RequestOptions {
 
 #[derive(Debug)]
 pub struct ResponseWrapper {
-    pub response: Response
+    pub response: Response,
 }
 
 impl ResponseWrapper {
@@ -137,12 +144,12 @@ impl ResponseWrapper {
     }
 
     pub fn ttl(&self) -> u64 {
-        self.response.headers()
+        self.response
+            .headers()
             .get("Cache-Control")
             .and_then(|v| v.to_str().ok())
             .and_then(|s| {
-                s.split(',')
-                .find_map(|part| {
+                s.split(',').find_map(|part| {
                     let part = part.trim();
                     if part.starts_with("max-age=") {
                         part[8..].parse::<u64>().ok()
@@ -163,15 +170,21 @@ impl From<Response> for ResponseWrapper {
 
 pub async fn get(url: &str, options: &RequestOptions) -> Result<ResponseWrapper> {
     let mut headers = HeaderMap::new();
-    headers.insert("Accept", options.accept_mime.as_deref().unwrap_or("text/html,application/xhtml+xml").parse().unwrap());
+    headers.insert(
+        "Accept",
+        options
+            .accept_mime
+            .as_deref()
+            .unwrap_or("text/html,application/xhtml+xml")
+            .parse()
+            .unwrap(),
+    );
 
-    let lang = options.lang
-        .as_ref()
-        .unwrap_or(&CONFIG.general.default_lang);
+    let lang = options.lang.as_ref().unwrap_or(&CONFIG.general.default_lang);
 
     headers.insert("Accept-Language", lang.parse().unwrap());
 
-    if &options.user_agent != &UserAgentList::Default {
+    if options.user_agent != UserAgentList::Default {
         headers.insert("User-Agent", options.user_agent.to_string().parse().unwrap());
     } else if let Some(ua) = &options.user_agent_string {
         headers.insert("User-Agent", ua.parse().unwrap());
@@ -181,15 +194,15 @@ pub async fn get(url: &str, options: &RequestOptions) -> Result<ResponseWrapper>
         headers.extend(custom_headers.clone());
     }
 
-    let request = CLIENT
-        .get(url)
-        .headers(headers);
+    let request = CLIENT.get(url).headers(headers);
 
     let response = request.send().await;
     if let Err(e) = &response {
         let is_ignore_error = 'err: {
             let ReqwestMiddlewareError::Reqwest(inner) = e else { break 'err false };
-            let Some(hyper_err) = inner.source().and_then(|s| s.downcast_ref::<HyperUtilError>()) else { break 'err false };
+            let Some(hyper_err) = inner.source().and_then(|s| s.downcast_ref::<HyperUtilError>()) else {
+                break 'err false;
+            };
             if let Some(source) = hyper_err.source() {
                 source.to_string() == "tcp connect error"
             } else {
@@ -198,7 +211,10 @@ pub async fn get(url: &str, options: &RequestOptions) -> Result<ResponseWrapper>
         };
 
         if is_ignore_error {
-            tracing::info!("Failed to resolve host for '{}'. The resolved IP address may have been blocked by ACL.", url);
+            tracing::info!(
+                "Failed to resolve host for '{}'. The resolved IP address may have been blocked by ACL.",
+                url
+            );
         } else {
             let mut root_cause: &dyn std::error::Error = &e;
             while let Some(source) = root_cause.source() {
@@ -217,7 +233,7 @@ pub async fn head(url: &str) -> Result<HeaderMap> {
 }
 
 pub fn add_cookie(url: &Url, cookie_str: &str) {
-    COOKIE_JAR.add_cookie_str(cookie_str, &url);
+    COOKIE_JAR.add_cookie_str(cookie_str, url);
 }
 
 pub async fn is_allowed_scraping(url: &Url) -> bool {
@@ -230,7 +246,7 @@ pub async fn is_allowed_scraping(url: &Url) -> bool {
         Some(cached) => {
             tracing::debug!("Robots.txt cache hit for domain: {}", domain);
             cached
-        },
+        }
         None => {
             let robots_url = match url.join("/robots.txt") {
                 Ok(u) => u,
@@ -263,6 +279,5 @@ pub async fn is_allowed_scraping(url: &Url) -> bool {
         }
     };
 
-    texting_robots::Robot::new("SummalyBot", &txt.as_bytes())
-        .map_or(true, |robot| robot.allowed(url.path()))
+    texting_robots::Robot::new("SummalyBot", txt.as_bytes()).map_or(true, |robot| robot.allowed(url.path()))
 }

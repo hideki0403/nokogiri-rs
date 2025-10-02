@@ -1,8 +1,8 @@
-use std::process;
+use crate::config::CONFIG;
 use once_cell::sync::Lazy;
 use redis::{Client, Commands};
+use std::process;
 use xxhash_rust::xxh64::xxh64;
-use crate::config::CONFIG;
 
 static REDIS_CLIENT: Lazy<Option<Client>> = Lazy::new(|| {
     let cache_config = &CONFIG.cache;
@@ -62,7 +62,11 @@ fn gen_key(category: &str, identifier: &str) -> String {
 
 pub fn get_summarize_cache(url: &str, lang: Option<String>) -> Option<String> {
     let mut connection = REDIS_CLIENT.as_ref()?.get_connection().ok()?;
-    let key = gen_key("summarize", format!("{}:{}", url, lang.unwrap_or(CONFIG.general.default_lang.clone())).as_str());
+    let key = gen_key(
+        "summarize",
+        format!("{}:{}", url, lang.unwrap_or(CONFIG.general.default_lang.clone())).as_str(),
+    );
+
     tracing::debug!("Checking cache for key: {}", key);
     connection.get(&key).ok()
 }
@@ -78,9 +82,12 @@ pub fn set_summarize_cache(url: &str, lang: Option<String>, content: &str, ttl: 
         None => return,
     };
 
-    let key = gen_key("summarize", format!("{}:{}", url, lang.unwrap_or(CONFIG.general.default_lang.clone())).as_str());
-    let mut ttl = ttl;
+    let key = gen_key(
+        "summarize",
+        format!("{}:{}", url, lang.unwrap_or(CONFIG.general.default_lang.clone())).as_str(),
+    );
 
+    let mut ttl = ttl;
     if ttl > &86400 {
         tracing::debug!("TTL is greater than 86400 seconds (1 day), capping to 86400");
         ttl = &86400;
@@ -91,9 +98,8 @@ pub fn set_summarize_cache(url: &str, lang: Option<String>, content: &str, ttl: 
         Ok(_) => (),
         Err(e) => {
             tracing::error!("Failed to set cache for key {}: {}", key, e);
-            return;
         }
-    };
+    }
 }
 
 pub fn get_robotstxt_cache(domain: &str) -> Option<String> {
@@ -116,7 +122,6 @@ pub fn set_robotstxt_cache(domain: &str, content: &str) {
         Ok(_) => (),
         Err(e) => {
             tracing::error!("Failed to set robots.txt cache for key {}: {}", key, e);
-            return;
         }
-    };
+    }
 }

@@ -1,7 +1,7 @@
 use tracing_subscriber::filter::LevelFilter;
 
-mod core;
 mod config;
+mod core;
 mod resource;
 mod server;
 
@@ -12,11 +12,11 @@ async fn main() {
     // Logging setup
     let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
         let level = conf
-        .debug
-        .as_ref()
-        .and_then(|d| d.log_level.as_ref())
-        .and_then(|s| s.parse::<LevelFilter>().ok())
-        .unwrap_or(if cfg!(debug_assertions) { LevelFilter::DEBUG } else { LevelFilter::INFO });
+            .debug
+            .as_ref()
+            .and_then(|d| d.log_level.as_ref())
+            .and_then(|s| s.parse::<LevelFilter>().ok())
+            .unwrap_or(if cfg!(debug_assertions) { LevelFilter::DEBUG } else { LevelFilter::INFO });
 
         let filter_str = format!("{},selectors=off,html5ever=off", level);
         tracing_subscriber::EnvFilter::new(filter_str)

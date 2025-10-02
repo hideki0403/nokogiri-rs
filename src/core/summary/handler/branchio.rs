@@ -1,6 +1,12 @@
+use crate::core::{
+    request::{self},
+    summary::{
+        def::{SummalyHandler, SummarizeArguments, SummaryResultWithMetadata},
+        summarize,
+    },
+};
 use async_trait::async_trait;
 use url::Url;
-use crate::core::{request::{self}, summary::{def::{SummalyHandler, SummarizeArguments, SummaryResultWithMetadata}, summarize}};
 
 pub struct BranchioHandler;
 
@@ -19,7 +25,7 @@ impl SummalyHandler for BranchioHandler {
         let mut fixed_url = args.url.clone();
         fixed_url.set_query(Some("$web_only=true"));
 
-        let response = request::get(&fixed_url.as_str(), &args.into()).await.ok()?;
+        let response = request::get(fixed_url.as_str(), &args.into()).await.ok()?;
         let ttl = &response.ttl();
         let summarized = summarize::generic_summarize(&fixed_url, response.text().await?, args).await?;
 

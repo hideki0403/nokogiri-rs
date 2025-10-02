@@ -1,6 +1,6 @@
+use async_trait::async_trait;
 use scraper::Html;
 use serde::{Deserialize, Serialize};
-use async_trait::async_trait;
 use url::Url;
 
 /* Summary */

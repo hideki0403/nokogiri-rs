@@ -1,9 +1,13 @@
-use axum::{extract::Query, http::HeaderMap, response::IntoResponse, Json};
+use crate::{
+    config::CONFIG,
+    core::summary::{def::SummarizeArguments, summary},
+    server::AppResult,
+};
+use axum::{Json, extract::Query, http::HeaderMap, response::IntoResponse};
 use reqwest::StatusCode;
 use serde::Deserialize;
 use url::Url;
 use urlencoding::decode;
-use crate::{config::CONFIG, core::summary::{def::SummarizeArguments, summary}, server::AppResult};
 
 #[derive(Deserialize, Debug)]
 pub struct ReqParams {

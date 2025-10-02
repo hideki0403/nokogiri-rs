@@ -1,19 +1,22 @@
+use crate::core::{
+    request::{self, RequestOptions},
+    summary::{
+        def::{SummalyHandler, SummarizeArguments, SummaryResult, SummaryResultWithMetadata},
+        utility::text_clamp,
+    },
+};
 use async_trait::async_trait;
 use axum::http::HeaderMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest::StatusCode;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{Deserialize, de::DeserializeOwned};
 use url::Url;
-use crate::core::{request::{self, RequestOptions}, summary::{def::{SummalyHandler, SummarizeArguments, SummaryResult, SummaryResultWithMetadata}, utility::text_clamp}};
 
-static COOKIE_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"document\.cookie\s?=\s?"(?<cookie>.*)";"#).unwrap()
-});
+static COOKIE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r#"document\.cookie\s?=\s?"(?<cookie>.*)";"#).unwrap());
 
-static ACCEPTABLE_URL_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^https:\/\/([a-z0-9-]+\.)?skeb\.jp\/@(?<user>\w+)(\/works\/(?<work>[0-9]+))?\/?$").unwrap()
-});
+static ACCEPTABLE_URL_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^https:\/\/([a-z0-9-]+\.)?skeb\.jp\/@(?<user>\w+)(\/works\/(?<work>[0-9]+))?\/?$").unwrap());
 
 static REQUEST_OPTIONS: Lazy<RequestOptions> = Lazy::new(|| RequestOptions {
     user_agent: request::UserAgentList::Chrome,
@@ -30,7 +33,7 @@ pub struct SkebHandler;
 
 impl SkebHandler {
     async fn api_caller<T: DeserializeOwned>(&self, url: &str) -> Option<T> {
-        let u = Url::parse(&url).ok()?;
+        let u = Url::parse(url).ok()?;
         let mut response = request::get(url, &REQUEST_OPTIONS).await.ok()?.response;
 
         let is_too_many_requests = response.status() == StatusCode::TOO_MANY_REQUESTS;
@@ -44,7 +47,8 @@ impl SkebHandler {
         if is_too_many_requests && retry_after_zero {
             tracing::debug!("Skeb cookie check detected, adding cookie...");
             let body = response.text().await.ok()?;
-            let cookie = COOKIE_REGEX.captures(&body)
+            let cookie = COOKIE_REGEX
+                .captures(&body)
                 .and_then(|caps| caps.name("cookie").map(|m| m.as_str().to_string()))?;
 
             request::add_cookie(&u, &cookie);
@@ -73,7 +77,10 @@ impl SummalyHandler for SkebHandler {
         println!("Fetching Skeb summary for user: {}, work: {:?}", user, work);
 
         let summary = if let Some(work_id) = work {
-            let response = self.api_caller::<SkebWorkResponse>(&format!("https://skeb.jp/api/users/{user}/works/{work_id}")).await?;
+            let response = self
+                .api_caller::<SkebWorkResponse>(&format!("https://skeb.jp/api/users/{user}/works/{work_id}"))
+                .await?;
+
             let clampped_description = match &response.body.clone() {
                 Some(desc) => text_clamp(&desc.replace("\n", ""), 12),
                 None => "Untitled".to_string(),
@@ -81,7 +88,7 @@ impl SummalyHandler for SkebHandler {
 
             SkebSummary {
                 title: format!("{} by {}", clampped_description, response.creator.name),
-                description: response.body.and_then(|x| Some(text_clamp(&x, 300))),
+                description: response.body.map(|x| text_clamp(&x, 300)),
                 og_image: response.og_image_url,
                 nsfw: response.nsfw,
             }
@@ -89,7 +96,7 @@ impl SummalyHandler for SkebHandler {
             let response = self.api_caller::<SkebUserResponse>(&format!("https://skeb.jp/api/users/{user}")).await?;
             SkebSummary {
                 title: format!("{} (@{})", response.name, response.screen_name),
-                description: response.description.and_then(|x| Some(text_clamp(&x, 300))),
+                description: response.description.map(|x| text_clamp(&x, 300)),
                 og_image: response.og_image_url,
                 nsfw: false,
             }

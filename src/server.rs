@@ -1,8 +1,11 @@
 use crate::config;
 use axum::{
-    http::StatusCode, response::{IntoResponse, Response}, routing, Router
+    Router,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing,
 };
-use std::{time::Duration};
+use std::time::Duration;
 use tokio::net::TcpListener;
 use tower_http::{
     request_id::{MakeRequestUuid, SetRequestIdLayer},
@@ -11,8 +14,8 @@ use tower_http::{
 use tracing::Span;
 use uuid::Uuid;
 
-mod route;
 mod middleware;
+mod route;
 
 // Error handling
 pub struct AppError(anyhow::Error);

@@ -1,13 +1,15 @@
+use crate::core::{
+    request,
+    summary::def::{SummalyHandler, SummarizeArguments, SummaryResult, SummaryResultWithMetadata},
+};
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Deserialize;
 use url::Url;
-use crate::core::{request, summary::def::{SummalyHandler, SummarizeArguments, SummaryResult, SummaryResultWithMetadata}};
 
-static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^https?:\/\/((www|mobile)\.)?(twitter|x)\.com\/\w+\/status\/(?<id>\d+)([\/?#].*)?$").unwrap()
-});
+static URL_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^https?:\/\/((www|mobile)\.)?(twitter|x)\.com\/\w+\/status\/(?<id>\d+)([\/?#].*)?$").unwrap());
 
 pub struct TwitterHandler;
 
@@ -24,7 +26,11 @@ impl SummalyHandler for TwitterHandler {
     async fn summarize(&self, args: &SummarizeArguments) -> Option<SummaryResultWithMetadata> {
         let url = &args.url;
         let id = URL_REGEX.captures(url.as_str())?.name("id")?.as_str();
-        let response = request::get(format!("https://cdn.syndication.twimg.com/tweet-result?id={id}&token=x&lang=en").as_str(), &args.into()).await;
+        let response = request::get(
+            format!("https://cdn.syndication.twimg.com/tweet-result?id={id}&token=x&lang=en").as_str(),
+            &args.into(),
+        )
+        .await;
 
         if response.is_err() {
             return None;
@@ -80,29 +86,18 @@ impl SummalyHandler for TwitterHandler {
                 });
             }
 
-            let thumbnail = tweet.video.as_ref()
+            let thumbnail = tweet
+                .video
+                .as_ref()
                 .and_then(|v| v.poster.clone())
-                .or_else(|| {
-                    tweet.photos.as_ref()
-                        .and_then(|p| p.first())
-                        .and_then(|p| p.url.clone())
-                })
-                .or_else(|| {
-                    user.profile_image_url_https.clone()
-                        .and_then(|url| {
-                            Some(url.replace("_normal.", "."))
-                        })
-                });
+                .or_else(|| tweet.photos.as_ref().and_then(|p| p.first()).and_then(|p| p.url.clone()))
+                .or_else(|| user.profile_image_url_https.clone().map(|url| url.replace("_normal.", ".")));
 
             result.title = format!("{username} (@{screen_name}) | {}", if is_twitter { "Twitter" } else { "X" });
             result.description = Some(tweet_text.trim().to_string());
             result.thumbnail = thumbnail;
         } else {
-            result.title = if is_twitter {
-                "Twitter".to_string()
-            } else {
-                "X".to_string()
-            };
+            result.title = if is_twitter { "Twitter".to_string() } else { "X".to_string() };
         }
 
         Some(SummaryResultWithMetadata {

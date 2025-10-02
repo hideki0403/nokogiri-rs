@@ -1,6 +1,15 @@
+use crate::{
+    config::CONFIG,
+    core::{
+        request,
+        summary::{
+            def::{SummalyHandler, SummarizeArguments, SummaryResultWithMetadata},
+            summarize,
+        },
+    },
+};
 use async_trait::async_trait;
 use url::Url;
-use crate::{config::CONFIG, core::{request, summary::{def::{SummalyHandler, SummarizeArguments, SummaryResultWithMetadata}, summarize}}};
 
 pub struct GeneralHandler;
 
@@ -21,9 +30,9 @@ impl SummalyHandler for GeneralHandler {
             return None;
         }
 
-        let response = request::get(&url.as_str(), &args.into()).await.ok()?;
+        let response = request::get(url.as_str(), &args.into()).await.ok()?;
         let ttl = &response.ttl();
-        let summarized = summarize::generic_summarize(&url, response.text().await?, args).await?;
+        let summarized = summarize::generic_summarize(url, response.text().await?, args).await?;
 
         Some(SummaryResultWithMetadata {
             summary: summarized,

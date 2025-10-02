@@ -1,8 +1,8 @@
-use std::{net::SocketAddr, sync::Arc};
-use hickory_resolver::{config::LookupIpStrategy, lookup_ip::LookupIpIntoIter, TokioResolver};
+use anyhow::Result;
+use hickory_resolver::{TokioResolver, config::LookupIpStrategy, lookup_ip::LookupIpIntoIter};
 use once_cell::sync::OnceCell;
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};
-use anyhow::Result;
+use std::{net::SocketAddr, sync::Arc};
 
 #[derive(Debug, Default, Clone)]
 pub struct CustomDnsResolver {
@@ -27,9 +27,7 @@ impl Resolve for CustomDnsResolver {
         Box::pin(async move {
             let resolver = resolver.state.get_or_try_init(create_resolver)?;
             let lookup = resolver.lookup_ip(name.as_str()).await?;
-            let addrs: Addrs = Box::new(SocketAddrs {
-                iter: lookup.into_iter(),
-            });
+            let addrs: Addrs = Box::new(SocketAddrs { iter: lookup.into_iter() });
 
             Ok(addrs)
         })

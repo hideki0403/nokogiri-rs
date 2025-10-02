@@ -1,13 +1,18 @@
+use crate::core::{
+    request::{self, RequestOptions},
+    summary::{
+        def::{Player, SummalyHandler, SummarizeArguments, SummarizeHandler, SummaryResultWithMetadata},
+        selector,
+        summarize::{self, GenericSummarizeHandler},
+    },
+};
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use scraper::{Html, Selector};
 use url::Url;
-use crate::core::{request::{self, RequestOptions}, summary::{def::{Player, SummalyHandler, SummarizeArguments, SummarizeHandler, SummaryResultWithMetadata}, selector, summarize::{self, GenericSummarizeHandler}}};
 
-static DOMAIN_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^(www\.)?((amazon(\.co|com)?(\.[a-z]{2})?|amzn\.[a-z]{2,4}))$").unwrap()
-});
+static DOMAIN_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(www\.)?((amazon(\.co|com)?(\.[a-z]{2})?|amzn\.[a-z]{2,4}))$").unwrap());
 
 static SELECTOR_ID_ADULT_WARNING: Lazy<Selector> = Lazy::new(|| selector::s("#adultWarning"));
 
