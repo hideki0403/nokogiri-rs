@@ -1,0 +1,4 @@
+where_single_line = true
+max_width = 150
+binop_separator = "Back"
+imports_granularity = "Crate"
