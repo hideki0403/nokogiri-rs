@@ -9,7 +9,7 @@ use once_cell::sync::Lazy;
 use parse_size::parse_size;
 use reqwest::{Client, Response, cookie::Jar, header::HeaderMap, redirect::Policy};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Error as ReqwestMiddlewareError};
-use std::{env, error::Error, sync::Arc, time::Duration};
+use std::{env, error::Error, fmt, sync::Arc, time::Duration};
 use url::Url;
 
 mod resolver;
@@ -56,9 +56,9 @@ pub enum UserAgentList {
     Chrome,
 }
 
-impl UserAgentList {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for UserAgentList {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let ua_string = match self {
             UserAgentList::Default => format!(
                 "Mozilla/5.0 (compatible; {}; {}) SummalyBot/1.0 {}/{}",
                 env::consts::OS,
@@ -70,7 +70,8 @@ impl UserAgentList {
             UserAgentList::Chrome => {
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36".to_string()
             }
-        }
+        };
+        write!(f, "{ua_string}")
     }
 }
 
@@ -151,8 +152,8 @@ impl ResponseWrapper {
             .and_then(|s| {
                 s.split(',').find_map(|part| {
                     let part = part.trim();
-                    if part.starts_with("max-age=") {
-                        part[8..].parse::<u64>().ok()
+                    if let Some(age_str) = part.strip_prefix("max-age=") {
+                        age_str.parse::<u64>().ok()
                     } else {
                         None
                     }
