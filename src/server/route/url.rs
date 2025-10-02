@@ -67,14 +67,16 @@ pub async fn handler(Query(params): Query<ReqParams>) -> AppResult<impl IntoResp
         // content_length_required: params.content_length_required,
     };
 
+    let mut headers = HeaderMap::new();
     let summary = summary(arguments).await;
+
     if summary.is_none() {
-        return Ok((StatusCode::INTERNAL_SERVER_ERROR, "Failed to summarize the URL").into_response());
+        headers.insert("Cache-Control", "public, max-age=3600".parse().unwrap());
+        return Ok((StatusCode::UNPROCESSABLE_ENTITY, headers, "Failed to summarize the URL").into_response());
     }
 
-    let mut headers = HeaderMap::new();
-    headers.insert("Cache-Control", "public, max-age=604800".parse().unwrap());
-
     let response = Json(summary.unwrap()).into_response();
+
+    headers.insert("Cache-Control", "public, max-age=604800".parse().unwrap());
     Ok((headers, response).into_response())
 }
