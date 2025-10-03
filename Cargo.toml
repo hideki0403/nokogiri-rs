@@ -1,6 +1,6 @@
 [package]
 name = "nokogiri-rs"
-version = "2025.10.0"
+version = "2025.10.1"
 edition = "2024"
 
 [dependencies]
