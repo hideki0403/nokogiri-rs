@@ -243,10 +243,10 @@ pub async fn is_allowed_scraping(url: &Url) -> bool {
         None => return false,
     };
 
-    let txt = match cache::get_robotstxt_cache(domain) {
+    let (txt, is_cache) = match cache::get_robotstxt_cache(domain) {
         Some(cached) => {
             tracing::debug!("Robots.txt cache hit for domain: {}", domain);
-            cached
+            (cached, true)
         }
         None => {
             let robots_url = match url.join("/robots.txt") {
@@ -275,10 +275,15 @@ pub async fn is_allowed_scraping(url: &Url) -> bool {
                 }
             };
 
-            cache::set_robotstxt_cache(domain, &content);
-            content
+            (content, false)
         }
     };
 
-    texting_robots::Robot::new("SummalyBot", txt.as_bytes()).map_or(true, |robot| robot.allowed(url.path()))
+    let parsed = texting_robots::Robot::new("SummalyBot", txt.as_bytes());
+    if !is_cache {
+        let x = if parsed.is_ok() { txt } else { "".to_string() };
+        cache::set_robotstxt_cache(domain, &x);
+    }
+
+    parsed.map_or(true, |robot| robot.allowed(url.path()))
 }
