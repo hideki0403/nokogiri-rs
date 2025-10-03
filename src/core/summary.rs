@@ -18,8 +18,14 @@ static ACTIVE_HANDLERS: Lazy<Vec<&'static dyn def::SummalyHandler>> = Lazy::new(
         .collect()
 });
 
-pub async fn summary(args: SummarizeArguments) -> Option<def::SummaryResult> {
+pub async fn summary(mut args: SummarizeArguments) -> Option<def::SummaryResult> {
     let url = &args.url;
+    if let Some(l) = &args.lang &&
+        l == "ja-KS"
+    {
+        args.lang = Some("ja-JP".to_string());
+    }
+
     let cache = cache::get_summarize_cache(url.as_str(), args.lang.clone());
     if let Some(cached) = cache {
         tracing::debug!("Cache hit for URL: {}", url);
