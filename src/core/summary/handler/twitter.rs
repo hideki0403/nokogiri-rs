@@ -93,7 +93,7 @@ impl SummalyHandler for TwitterHandler {
                 .or_else(|| tweet.photos.as_ref().and_then(|p| p.first()).and_then(|p| p.url.clone()))
                 .or_else(|| user.profile_image_url_https.clone().map(|url| url.replace("_normal.", ".")));
 
-            result.title = format!("{username} (@{screen_name}) | {}", if is_twitter { "Twitter" } else { "X" });
+            result.title = format!("{username} (@{screen_name})");
             result.description = Some(tweet_text.trim().to_string());
             result.thumbnail = thumbnail;
         } else {
