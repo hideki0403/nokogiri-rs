@@ -1,6 +1,9 @@
 use crate::core::{
     request::{self, RequestOptions},
-    summary::{def::{SummalyHandler, SummarizeArguments, SummaryResult, SummaryResultWithMetadata}, utility::text_clamp},
+    summary::{
+        def::{SummalyHandler, SummarizeArguments, SummaryResult, SummaryResultWithMetadata},
+        utility::text_clamp,
+    },
 };
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
