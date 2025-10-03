@@ -18,15 +18,25 @@ static ACTIVE_HANDLERS: Lazy<Vec<&'static dyn def::SummalyHandler>> = Lazy::new(
         .collect()
 });
 
-pub async fn summary(mut args: SummarizeArguments) -> Option<def::SummaryResult> {
+static LANG_REGEX: Lazy<regex::Regex> = Lazy::new(|| regex::Regex::new(r"^[a-zA-Z]{2,3}-[a-zA-Z]{2,3}$").unwrap());
+
+pub async fn summary(args: SummarizeArguments) -> Option<def::SummaryResult> {
     let url = &args.url;
-    if let Some(l) = &args.lang &&
-        l == "ja-KS"
-    {
-        args.lang = Some("ja-JP".to_string());
+    let lang = args.lang.clone();
+
+    if lang.is_none() || !LANG_REGEX.is_match(&lang.unwrap()) {
+        tracing::error!("Invalid language code: {}", args.lang.unwrap_or("None".to_string()));
+        return None;
     }
 
-    let cache = cache::get_summarize_cache(url.as_str(), args.lang.clone());
+    let mut lang = args.lang.clone();
+    if let Some(l) = lang.clone() &&
+        l == "ja-KS"
+    {
+        lang = Some("ja-JP".to_string());
+    }
+
+    let cache = cache::get_summarize_cache(url.as_str(), lang.clone());
     if let Some(cached) = cache {
         tracing::debug!("Cache hit for URL: {}", url);
         return serde_json::from_str(&cached).ok();
@@ -43,11 +53,11 @@ pub async fn summary(mut args: SummarizeArguments) -> Option<def::SummaryResult>
                     }
 
                     let serialized = serde_json::to_string(&s.summary).ok()?;
-                    cache::set_summarize_cache(url.as_str(), args.lang.clone(), &serialized, &s.cache_ttl.clamp(300, 86400));
+                    cache::set_summarize_cache(url.as_str(), lang.clone(), &serialized, &s.cache_ttl.clamp(300, 86400));
                     Some(s.summary)
                 }
                 None => {
-                    cache::set_summarize_cache(url.as_str(), args.lang.clone(), "null", &300);
+                    cache::set_summarize_cache(url.as_str(), lang.clone(), "null", &300);
                     None
                 }
             };
