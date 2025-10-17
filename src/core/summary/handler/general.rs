@@ -25,7 +25,7 @@ impl SummalyHandler for GeneralHandler {
 
     async fn summarize(&self, args: &SummarizeArguments) -> Option<SummaryResultWithMetadata> {
         let url = &args.url;
-        if !&CONFIG.general.ignore_robots_txt && !request::is_allowed_scraping(url).await {
+        if !&CONFIG.general.ignore_robots_txt && !request::robotstxt::is_allowed_scraping(url).await {
             tracing::info!("Scraping disallowed by robots.txt: {}", url);
             return None;
         }

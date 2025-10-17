@@ -1,7 +1,4 @@
-use crate::{
-    config::CONFIG,
-    core::{cache, summary::def::SummarizeArguments},
-};
+use crate::{config::CONFIG, core::summary::def::SummarizeArguments};
 use anyhow::Result;
 use http_acl_reqwest::{HttpAcl, HttpAclMiddleware};
 use hyper_util::client::legacy::Error as HyperUtilError;
@@ -13,6 +10,7 @@ use std::{env, error::Error, fmt, sync::Arc, time::Duration};
 use url::Url;
 
 mod resolver;
+pub mod robotstxt;
 
 pub static COOKIE_JAR: Lazy<Arc<Jar>> = Lazy::new(|| Arc::new(Jar::default()));
 
@@ -161,6 +159,14 @@ impl ResponseWrapper {
             })
             .unwrap_or(300)
     }
+
+    pub fn content_type(&self) -> Option<String> {
+        self.response
+            .headers()
+            .get("Content-Type")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string())
+    }
 }
 
 impl From<Response> for ResponseWrapper {
@@ -235,55 +241,4 @@ pub async fn head(url: &str) -> Result<HeaderMap> {
 
 pub fn add_cookie(url: &Url, cookie_str: &str) {
     COOKIE_JAR.add_cookie_str(cookie_str, url);
-}
-
-pub async fn is_allowed_scraping(url: &Url) -> bool {
-    let domain = match url.host_str() {
-        Some(d) => d,
-        None => return false,
-    };
-
-    let (txt, is_cache) = match cache::get_robotstxt_cache(domain) {
-        Some(cached) => {
-            tracing::debug!("Robots.txt cache hit for domain: {}", domain);
-            (cached, true)
-        }
-        None => {
-            let robots_url = match url.join("/robots.txt") {
-                Ok(u) => u,
-                Err(e) => {
-                    tracing::debug!("Failed to construct robots.txt URL for '{}': {}", url, e);
-                    return false;
-                }
-            };
-
-            let response = match get(robots_url.as_str(), &RequestOptions::default()).await {
-                Ok(resp) => resp,
-                Err(e) => {
-                    tracing::debug!("Failed to fetch robots.txt from '{}': {}", robots_url, e);
-                    cache::set_robotstxt_cache(domain, "");
-                    return true;
-                }
-            };
-
-            let content = match response.text().await {
-                Some(x) => x,
-                None => {
-                    tracing::debug!("Failed to read robots.txt content from '{}'", robots_url);
-                    cache::set_robotstxt_cache(domain, "");
-                    return true;
-                }
-            };
-
-            (content, false)
-        }
-    };
-
-    let parsed = texting_robots::Robot::new("SummalyBot", txt.as_bytes());
-    if !is_cache {
-        let x = if parsed.is_ok() { txt } else { "".to_string() };
-        cache::set_robotstxt_cache(domain, &x);
-    }
-
-    parsed.map_or(true, |robot| robot.allowed(url.path()))
 }
