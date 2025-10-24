@@ -1,10 +1,12 @@
-use crate::config;
+use crate::{config, core};
 use axum::{
     Router,
-    http::StatusCode,
+    body::Body,
+    http::{Request, StatusCode},
     response::{IntoResponse, Response},
     routing,
 };
+use sentry::integrations::tower::NewSentryLayer;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tower_http::{
@@ -46,7 +48,7 @@ pub type AppResult<T> = Result<T, AppError>;
 pub async fn listen() {
     let conf = &config::CONFIG;
 
-    let app = Router::new()
+    let mut app = Router::new()
         .route("/", route::index::handler())
         .route("/robots.txt", route::robots::handler())
         .route("/url", routing::get(route::url::handler))
@@ -66,6 +68,10 @@ pub async fn listen() {
             }),
         )
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid));
+
+    if core::sentry::is_sentry_enabled() {
+        app = app.layer(NewSentryLayer::<Request<Body>>::new_from_top());
+    }
 
     let addr = format!("{}:{}", conf.server.host, conf.server.port);
     let listener = TcpListener::bind(&addr).await;

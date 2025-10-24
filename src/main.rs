@@ -1,12 +1,12 @@
-use tracing_subscriber::filter::LevelFilter;
+use sentry::SentryFutureExt;
+use tracing_subscriber::{filter::LevelFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
 mod core;
 mod resource;
 mod server;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let conf = &config::CONFIG;
 
     // Logging setup
@@ -22,21 +22,31 @@ async fn main() {
         tracing_subscriber::EnvFilter::new(filter_str)
     });
 
-    tracing_subscriber::fmt().with_env_filter(filter).init();
-
     // Sentry setup
-    if let Some(sentry) = &conf.sentry &&
-        let Some(dsn) = &sentry.dsn &&
-        let Ok(sentry_dsn) = sentry::IntoDsn::into_dsn(dsn.clone())
-    {
-        tracing::info!("Sentry logging is enabled");
+    if core::sentry::is_sentry_enabled() {
+        println!("Sentry logging is enabled");
+
         let _guard = sentry::init(sentry::ClientOptions {
-            dsn: sentry_dsn,
+            dsn: core::sentry::SENTRY_DSN.clone(),
             release: sentry::release_name!(),
             ..Default::default()
         });
+
+        tracing_subscriber::registry()
+            .with(tracing_subscriber::fmt::layer())
+            .with(filter)
+            .with(sentry::integrations::tracing::layer())
+            .init();
+    } else {
+        tracing_subscriber::fmt().with_env_filter(filter).init();
     }
 
     // Start server
+    tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap().block_on(async {
+        run().bind_hub(sentry::Hub::current()).await;
+    });
+}
+
+async fn run() {
     server::listen().await;
 }
