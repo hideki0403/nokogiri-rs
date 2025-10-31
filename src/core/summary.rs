@@ -3,6 +3,7 @@ use crate::{
     core::{cache, summary::def::SummarizeArguments},
 };
 use once_cell::sync::Lazy;
+use language_tags::LanguageTag;
 
 pub mod def;
 pub mod handler;
@@ -18,22 +19,23 @@ static ACTIVE_HANDLERS: Lazy<Vec<&'static dyn def::SummalyHandler>> = Lazy::new(
         .collect()
 });
 
-static LANG_REGEX: Lazy<regex::Regex> = Lazy::new(|| regex::Regex::new(r"^[a-zA-Z]{2,3}-[a-zA-Z]{2,3}$").unwrap());
-
 pub async fn summary(args: SummarizeArguments) -> Option<def::SummaryResult> {
     let url = &args.url;
-    let lang = args.lang.clone();
-
-    if lang.is_none() || !LANG_REGEX.is_match(&lang.unwrap()) {
-        tracing::error!("Invalid language code: {}", args.lang.unwrap_or("None".to_string()));
-        return None;
-    }
-
     let mut lang = args.lang.clone();
-    if let Some(l) = lang.clone() &&
-        l == "ja-KS"
-    {
-        lang = Some("ja-JP".to_string());
+
+    if let Some(ref l) = lang {
+        let parsed_tag = LanguageTag::parse(l);
+        if parsed_tag.is_err() {
+            tracing::error!("Invalid language code: {}", l);
+            return None;
+        }
+
+        let mut tag = parsed_tag.unwrap().into_string();
+        if tag == "ja-KS" {
+            tag = "ja-JP".to_string();
+        }
+
+        lang = Some(tag);
     }
 
     let cache = cache::get_summarize_cache(url.as_str(), lang.clone());

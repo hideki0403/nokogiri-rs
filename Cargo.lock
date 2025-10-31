@@ -1731,6 +1731,7 @@ dependencies = [
  "htmlentity",
  "http-acl-reqwest",
  "hyper-util",
+ "language-tags",
  "once_cell",
  "openssl-sys",
  "parse-size",

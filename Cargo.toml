@@ -35,3 +35,4 @@ redis = { version = "0.32", features = ["tokio-comp"] }
 xxhash-rust = { version = "0.8", features = ["xxh64"] }
 texting_robots = "0.2"
 parse-size = "1.1"
+language-tags = "0.3"
