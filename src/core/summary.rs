@@ -2,8 +2,8 @@ use crate::{
     config::CONFIG,
     core::{cache, summary::def::SummarizeArguments},
 };
-use once_cell::sync::Lazy;
 use language_tags::LanguageTag;
+use once_cell::sync::Lazy;
 
 pub mod def;
 pub mod handler;
