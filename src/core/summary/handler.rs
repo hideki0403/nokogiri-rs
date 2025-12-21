@@ -3,14 +3,14 @@ use crate::core::summary::def;
 mod amazon;
 mod branchio;
 mod general;
+mod reddit;
 mod skeb;
 mod spotify;
 mod twitter;
 mod wikipedia;
 mod youtube;
-mod reddit;
 
-pub static HANDLERS: &[&dyn def::SummalyHandler] = &[
+pub static CUSTOM_HANDLERS: &[&dyn def::SummalyHandler] = &[
     &wikipedia::WikipediaHandler,
     &youtube::YoutubeHandler,
     &skeb::SkebHandler,
@@ -19,5 +19,6 @@ pub static HANDLERS: &[&dyn def::SummalyHandler] = &[
     &branchio::BranchioHandler,
     &amazon::AmazonHandler,
     &reddit::RedditHandler,
-    &general::GeneralHandler,
 ];
+
+pub static DEFAULT_HANDLER: &general::GeneralHandler = &general::GeneralHandler;

@@ -12,11 +12,14 @@ pub mod summarize;
 pub mod utility;
 
 static ACTIVE_HANDLERS: Lazy<Vec<&'static dyn def::SummalyHandler>> = Lazy::new(|| {
-    handler::HANDLERS
+    let mut handlers: Vec<&dyn def::SummalyHandler> = handler::CUSTOM_HANDLERS
         .iter()
         .filter(|handler| !CONFIG.plugins.disabled.contains(&handler.id().to_string()))
         .copied()
-        .collect()
+        .collect();
+
+    handlers.push(handler::DEFAULT_HANDLER);
+    handlers
 });
 
 pub async fn summary(args: SummarizeArguments) -> Option<def::SummaryResult> {
