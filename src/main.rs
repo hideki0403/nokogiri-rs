@@ -18,7 +18,7 @@ fn main() {
             .and_then(|s| s.parse::<LevelFilter>().ok())
             .unwrap_or(if cfg!(debug_assertions) { LevelFilter::DEBUG } else { LevelFilter::INFO });
 
-        let filter_str = format!("{},selectors=off,html5ever=off", level);
+        let filter_str = format!("{}={}", env!("CARGO_PKG_NAME").replace("-", "_"), level);
         tracing_subscriber::EnvFilter::new(filter_str)
     });
 
