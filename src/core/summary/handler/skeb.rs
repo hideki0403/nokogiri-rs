@@ -74,8 +74,6 @@ impl SummalyHandler for SkebHandler {
         let user = caps.name("user")?.as_str();
         let work = caps.name("work").map(|m| m.as_str());
 
-        println!("Fetching Skeb summary for user: {}, work: {:?}", user, work);
-
         let summary = if let Some(work_id) = work {
             let response = self
                 .api_caller::<SkebWorkResponse>(&format!("https://skeb.jp/api/users/{user}/works/{work_id}"))
