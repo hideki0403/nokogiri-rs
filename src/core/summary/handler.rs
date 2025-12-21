@@ -8,6 +8,7 @@ mod spotify;
 mod twitter;
 mod wikipedia;
 mod youtube;
+mod reddit;
 
 pub static HANDLERS: &[&dyn def::SummalyHandler] = &[
     &wikipedia::WikipediaHandler,
@@ -17,5 +18,6 @@ pub static HANDLERS: &[&dyn def::SummalyHandler] = &[
     &spotify::SpotifyHandler,
     &branchio::BranchioHandler,
     &amazon::AmazonHandler,
+    &reddit::RedditHandler,
     &general::GeneralHandler,
 ];
