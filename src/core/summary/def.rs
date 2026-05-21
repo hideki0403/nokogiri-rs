@@ -28,6 +28,7 @@ pub struct SummaryResult {
     pub thumbnail: Option<String>,
     pub sitename: Option<String>,
     pub player: Player,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sensitive: Option<bool>,
     pub activity_pub: Option<String>,
     /// The @ handle of a fediverse user (https://blog.joinmastodon.org/2024/07/highlighting-journalism-on-mastodon/)
