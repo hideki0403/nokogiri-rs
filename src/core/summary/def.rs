@@ -13,6 +13,13 @@ pub struct Player {
     pub allow: Vec<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ThumbnailStyle {
+    Summary,
+    SummaryLargeImage,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SummaryResult {
     pub title: String,
@@ -25,7 +32,8 @@ pub struct SummaryResult {
     pub activity_pub: Option<String>,
     /// The @ handle of a fediverse user (https://blog.joinmastodon.org/2024/07/highlighting-journalism-on-mastodon/)
     pub fediverse_creator: Option<String>,
-    pub large_card: Option<bool>,
+    // "summary" or "summary_large_image" or `null` @see: https://github.com/misskey-dev/summaly/pull/66
+    pub thumbnail_style: Option<ThumbnailStyle>,
     pub url: Option<String>,
 }
 
@@ -58,7 +66,7 @@ pub trait SummarizeHandler: Send + Sync {
     fn sensitive(&self, url: &Url, html: &Html) -> Option<bool>;
     fn activity_pub(&self, url: &Url, html: &Html) -> Option<String>;
     fn fediverse_creator(&self, url: &Url, html: &Html) -> Option<String>;
-    fn summary_large_image(&self, url: &Url, html: &Html) -> bool;
+    fn thumbnail_style(&self, url: &Url, html: &Html) -> Option<ThumbnailStyle>;
 }
 
 pub struct SummarizeArguments {

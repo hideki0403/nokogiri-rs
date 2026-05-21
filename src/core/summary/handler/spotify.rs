@@ -1,7 +1,7 @@
 use crate::core::{
     request::{self, RequestOptions},
     summary::{
-        def::{Player, SummalyHandler, SummarizeArguments, SummarizeHandler, SummaryResultWithMetadata},
+        def::{Player, SummalyHandler, SummarizeArguments, SummarizeHandler, SummaryResultWithMetadata, ThumbnailStyle},
         summarize::{self, GenericSummarizeHandler},
     },
 };
@@ -88,7 +88,7 @@ impl SummarizeHandler for SpotifySummarizeHandler {
         None
     }
 
-    fn summary_large_image(&self, _url: &Url, _html: &Html) -> bool {
-        false
+    fn thumbnail_style(&self, _url: &Url, _html: &Html) -> Option<ThumbnailStyle> {
+        None
     }
 }

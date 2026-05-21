@@ -165,7 +165,8 @@ pub async fn execute_summarize(url: &Url, str_html: String, args: &SummarizeArgu
         Err(_) => return None,
     };
 
-    let is_large_summary_image = handler.summary_large_image(url, &html);
+    let thumbnail_style = handler.thumbnail_style(url, &html);
+    let is_large_summary_image = matches!(thumbnail_style, Some(ThumbnailStyle::SummaryLargeImage));
     let mut image = handler.thumbnail(url, &html);
 
     if image.is_some() {
@@ -212,7 +213,7 @@ pub async fn execute_summarize(url: &Url, str_html: String, args: &SummarizeArgu
         sensitive,
         activity_pub,
         fediverse_creator,
-        large_card: Some(is_large_summary_image),
+        thumbnail_style,
         url: None,
     })
 }
@@ -322,12 +323,16 @@ impl SummarizeHandler for GenericSummarizeHandler {
         select_attr(html, "content", &[&selector::META_FEDIVERSE_CREATOR_NAME])
     }
 
-    fn summary_large_image(&self, _url: &Url, html: &Html) -> bool {
+    fn thumbnail_style(&self, _url: &Url, html: &Html) -> Option<ThumbnailStyle> {
         let x = select_attr(
             html,
             "content",
             &[&selector::META_TWITTER_CARD_NAME, &selector::META_TWITTER_CARD_PROPERTY],
         );
-        x.is_some_and(|v| v == "summary_large_image")
+        match x.as_deref() {
+            Some("summary") => Some(ThumbnailStyle::Summary),
+            Some("summary_large_image") => Some(ThumbnailStyle::SummaryLargeImage),
+            _ => None,
+        }
     }
 }

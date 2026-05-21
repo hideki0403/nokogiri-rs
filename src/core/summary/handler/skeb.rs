@@ -1,7 +1,7 @@
 use crate::core::{
     request::{self, RequestOptions},
     summary::{
-        def::{SummalyHandler, SummarizeArguments, SummaryResult, SummaryResultWithMetadata},
+        def::{SummalyHandler, SummarizeArguments, SummaryResult, SummaryResultWithMetadata, ThumbnailStyle},
         utility::text_clamp,
     },
 };
@@ -107,7 +107,7 @@ impl SummalyHandler for SkebHandler {
             sitename: Some("Skeb".to_string()),
             thumbnail: summary.og_image,
             sensitive: Some(summary.nsfw),
-            large_card: Some(true),
+            thumbnail_style: Some(ThumbnailStyle::SummaryLargeImage),
             ..Default::default()
         };
 
