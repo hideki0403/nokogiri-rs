@@ -89,12 +89,17 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install make
 
-      - name: Install cross
+      - name: Install Zig on Linux
+        if: runner.os == 'Linux'
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: '0.12.0'
+
+      - name: Install cargo-zigbuild on Linux
         if: runner.os == 'Linux'
         uses: baptiste0928/cargo-install@v3
         with:
-          crate: cross
-          git: https://github.com/cross-rs/cross
+          crate: cargo-zigbuild
 
       - name: Install cargo-edit
         uses: baptiste0928/cargo-install@v3
@@ -104,9 +109,11 @@ jobs:
       - name: Set version in Cargo.toml
         run: cargo set-version ${{ needs.prepare.outputs.version }}
 
-      - name: Build with cross
+      - name: Build with cargo-zigbuild
         if: runner.os == 'Linux'
-        run: cross build --release --target ${{ matrix.target }} --verbose
+        run: |
+          rustup target add ${{ matrix.target }}
+          cargo zigbuild --release --target ${{ matrix.target }} --verbose
 
       - name: Build
         if: runner.os != 'Linux'
