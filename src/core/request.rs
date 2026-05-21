@@ -1,28 +1,23 @@
 use crate::{config::CONFIG, core::summary::def::SummarizeArguments};
 use anyhow::Result;
-use http_acl_reqwest::{HttpAcl, HttpAclMiddleware};
-use hyper_util::client::legacy::Error as HyperUtilError;
 use once_cell::sync::Lazy;
 use parse_size::parse_size;
 use reqwest::{Client, Response, cookie::Jar, header::HeaderMap, redirect::Policy};
-use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Error as ReqwestMiddlewareError};
-use std::{env, error::Error, fmt, sync::Arc, time::Duration};
+use reqwest_middleware::{
+    ClientBuilder,
+    ClientWithMiddleware,
+    Error as ReqwestMiddlewareError,
+};
+use std::{env, fmt, sync::Arc, time::Duration};
 use url::Url;
 
+mod ip_check;
 mod resolver;
 pub mod robotstxt;
 
 pub static COOKIE_JAR: Lazy<Arc<Jar>> = Lazy::new(|| Arc::new(Jar::default()));
 
 pub static CLIENT: Lazy<ClientWithMiddleware> = Lazy::new(|| {
-    let acl = HttpAcl::builder()
-        .ip_acl_default(true)
-        .port_acl_default(true)
-        .host_acl_default(true)
-        .non_global_ip_ranges(CONFIG.security.block_non_global_ips)
-        .build();
-
-    let middleware = HttpAclMiddleware::new(acl);
     let response_timeout = Duration::from_millis(CONFIG.general.response_timeout);
     let client = Client::builder()
         .user_agent(UserAgentList::Default.to_string())
@@ -31,11 +26,13 @@ pub static CLIENT: Lazy<ClientWithMiddleware> = Lazy::new(|| {
         .read_timeout(response_timeout)
         .connect_timeout(response_timeout)
         .cookie_provider(Arc::clone(&COOKIE_JAR))
-        .dns_resolver(middleware.with_dns_resolver(Arc::new(resolver::CustomDnsResolver::default())))
+        .dns_resolver(Arc::new(resolver::CustomDnsResolver::default()))
         .build()
         .unwrap();
 
-    ClientBuilder::new(client).with(middleware).build()
+    ClientBuilder::new(client)
+        .with(ip_check::BlockNonGlobalIpMiddleware::default())
+        .build()
 });
 
 pub static CONTENT_LENGTH_LIMIT: Lazy<usize> = Lazy::new(|| match parse_size(&CONFIG.general.content_length_limit) {
@@ -205,23 +202,13 @@ pub async fn get(url: &str, options: &RequestOptions) -> Result<ResponseWrapper>
 
     let response = request.send().await;
     if let Err(e) = &response {
-        let is_ignore_error = 'err: {
-            let ReqwestMiddlewareError::Reqwest(inner) = e else { break 'err false };
-            let Some(hyper_err) = inner.source().and_then(|s| s.downcast_ref::<HyperUtilError>()) else {
-                break 'err false;
-            };
-            if let Some(source) = hyper_err.source() {
-                source.to_string() == "tcp connect error"
-            } else {
-                false
-            }
+        let block_error = match e {
+            ReqwestMiddlewareError::Middleware(err) => err.downcast_ref::<ip_check::BlockNonGlobalIpError>(),
+            _ => None,
         };
 
-        if is_ignore_error {
-            tracing::info!(
-                "Failed to resolve host for '{}'. The resolved IP address may have been blocked by ACL.",
-                url
-            );
+        if block_error.is_some() {
+            tracing::warn!("{}", block_error.unwrap());
         } else {
             let mut root_cause: &dyn std::error::Error = &e;
             while let Some(source) = root_cause.source() {
