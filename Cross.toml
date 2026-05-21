@@ -1,8 +1,11 @@
-[build]
-pre-build = ["apt-get update && apt-get install --assume-yes --no-install-recommends libclang-10-dev clang-10"]
+# see: https://github.com/cross-rs/cross/issues/1725#issuecomment-3544700487
 
-[target.armv7-unknown-linux-gnueabihf]
-image = "ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:main"
-
-[target.armv7-unknown-linux-gnueabihf.env]
-passthrough = ["LIBCLANG_PATH=/usr/lib/llvm-10/lib", """BINDGEN_EXTRA_CLANG_ARGS_armv7-unknown-linux-gnueabihf=--sysroot=/usr/arm-linux-gnueabihf -idirafter/usr/include"""]
+[target.x86_64-unknown-linux-gnu]
+image = "ghcr.io/cross-rs/x86_64-unknown-linux-gnu:edge"
+pre-build = [
+    'apt-get update && apt-get -y upgrade',
+    # Need to upgrade gcc to a version that does have a bug (because aws-lc-sys's custom build script errors with this:
+    #  ### COMPILER BUG DETECTED ###
+    #  Your compiler (cc) is not supported due to a memcmp related bug reported in https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189. We strongly recommend against using this compiler.
+    'apt-get -y install gcc-10 && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 60',
+]
