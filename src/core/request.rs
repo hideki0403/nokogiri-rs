@@ -3,11 +3,7 @@ use anyhow::Result;
 use once_cell::sync::Lazy;
 use parse_size::parse_size;
 use reqwest::{Client, Response, cookie::Jar, header::HeaderMap, redirect::Policy};
-use reqwest_middleware::{
-    ClientBuilder,
-    ClientWithMiddleware,
-    Error as ReqwestMiddlewareError,
-};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Error as ReqwestMiddlewareError};
 use std::{env, fmt, sync::Arc, time::Duration};
 use url::Url;
 
@@ -26,13 +22,11 @@ pub static CLIENT: Lazy<ClientWithMiddleware> = Lazy::new(|| {
         .read_timeout(response_timeout)
         .connect_timeout(response_timeout)
         .cookie_provider(Arc::clone(&COOKIE_JAR))
-        .dns_resolver(Arc::new(resolver::CustomDnsResolver::default()))
+        .dns_resolver(Arc::new(resolver::CustomDnsResolver))
         .build()
         .unwrap();
 
-    ClientBuilder::new(client)
-        .with(ip_check::BlockNonGlobalIpMiddleware::default())
-        .build()
+    ClientBuilder::new(client).with(ip_check::BlockNonGlobalIpMiddleware).build()
 });
 
 pub static CONTENT_LENGTH_LIMIT: Lazy<usize> = Lazy::new(|| match parse_size(&CONFIG.general.content_length_limit) {
@@ -207,8 +201,8 @@ pub async fn get(url: &str, options: &RequestOptions) -> Result<ResponseWrapper>
             _ => None,
         };
 
-        if block_error.is_some() {
-            tracing::warn!("{}", block_error.unwrap());
+        if let Some(err) = block_error {
+            tracing::warn!("{}", err);
         } else {
             let mut root_cause: &dyn std::error::Error = &e;
             while let Some(source) = root_cause.source() {

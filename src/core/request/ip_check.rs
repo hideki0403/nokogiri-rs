@@ -3,7 +3,11 @@ use anyhow::{Result, anyhow};
 use axum::http::Extensions;
 use reqwest::{Request, Response};
 use reqwest_middleware::{Error as ReqwestMiddlewareError, Middleware, Next};
-use std::{error::Error, fmt, net::{IpAddr, Ipv4Addr}};
+use std::{
+    error::Error,
+    fmt,
+    net::{IpAddr, Ipv4Addr},
+};
 use url::{Host, Url};
 
 use super::resolver;
@@ -50,12 +54,7 @@ impl Error for BlockNonGlobalIpError {}
 
 #[async_trait::async_trait]
 impl Middleware for BlockNonGlobalIpMiddleware {
-    async fn handle(
-        &self,
-        req: Request,
-        extensions: &mut Extensions,
-        next: Next<'_>,
-    ) -> reqwest_middleware::Result<Response> {
+    async fn handle(&self, req: Request, extensions: &mut Extensions, next: Next<'_>) -> reqwest_middleware::Result<Response> {
         if let Err(err) = enforce_non_global_ip_block(req.url()).await {
             return Err(ReqwestMiddlewareError::Middleware(err));
         }
@@ -67,21 +66,15 @@ impl Middleware for BlockNonGlobalIpMiddleware {
 fn is_non_global_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(ip) => {
-            ip.is_private()
-                || is_cgnat_ipv4(ip)
-                || ip.is_loopback()
-                || ip.is_link_local()
-                || ip.is_broadcast()
-                || ip.is_unspecified()
-                || ip.is_multicast()
+            ip.is_private() ||
+                is_cgnat_ipv4(ip) ||
+                ip.is_loopback() ||
+                ip.is_link_local() ||
+                ip.is_broadcast() ||
+                ip.is_unspecified() ||
+                ip.is_multicast()
         }
-        IpAddr::V6(ip) => {
-            ip.is_loopback()
-                || ip.is_unique_local()
-                || ip.is_unicast_link_local()
-                || ip.is_unspecified()
-                || ip.is_multicast()
-        }
+        IpAddr::V6(ip) => ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local() || ip.is_unspecified() || ip.is_multicast(),
     }
 }
 
@@ -97,9 +90,7 @@ async fn enforce_non_global_ip_block(url: &Url) -> Result<()> {
         return Ok(());
     }
 
-    let host = url
-        .host()
-        .ok_or_else(|| anyhow!("URL has no host: {}", url))?;
+    let host = url.host().ok_or_else(|| anyhow!("URL has no host: {}", url))?;
 
     match host {
         Host::Ipv4(ip) => {
