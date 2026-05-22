@@ -17,15 +17,13 @@ pub struct BlockNonGlobalIpMiddleware;
 
 #[derive(Debug)]
 pub struct BlockNonGlobalIpError {
-    pub url: String,
     pub blocked_ip: IpAddr,
     pub resolved_from: Option<String>,
 }
 
 impl BlockNonGlobalIpError {
-    fn new(url: &Url, blocked_ip: IpAddr, resolved_from: Option<&str>) -> Self {
+    fn new(blocked_ip: IpAddr, resolved_from: Option<&str>) -> Self {
         Self {
-            url: url.to_string(),
             blocked_ip,
             resolved_from: resolved_from.map(str::to_string),
         }
@@ -37,14 +35,14 @@ impl fmt::Display for BlockNonGlobalIpError {
         if let Some(resolved_from) = &self.resolved_from {
             write!(
                 f,
-                "Blocked by BlockNonGlobalIpMiddleware: non-global IP {} (resolved from {}) for URL {}",
-                self.blocked_ip, resolved_from, self.url
+                "Blocked non-global IP {} (resolved from {})",
+                self.blocked_ip, resolved_from
             )
         } else {
             write!(
                 f,
-                "Blocked by BlockNonGlobalIpMiddleware: non-global IP {} for URL {}",
-                self.blocked_ip, self.url
+                "Blocked non-global IP {}",
+                self.blocked_ip
             )
         }
     }
@@ -105,20 +103,20 @@ pub async fn enforce_non_global_ip_block(url: &Url) -> Result<()> {
         Host::Ipv4(ip) => {
             let ip = IpAddr::V4(ip);
             if is_non_global_ip(ip) {
-                return Err(BlockNonGlobalIpError::new(url, ip, None).into());
+                return Err(BlockNonGlobalIpError::new(ip, None).into());
             }
         }
         Host::Ipv6(ip) => {
             let ip = IpAddr::V6(ip);
             if is_non_global_ip(ip) {
-                return Err(BlockNonGlobalIpError::new(url, ip, None).into());
+                return Err(BlockNonGlobalIpError::new(ip, None).into());
             }
         }
         Host::Domain(domain) => {
             let ips = resolver::lookup_ips(domain).await?;
-            tracing::debug!("Resolved domain '{}' to IPs: {:?}", domain, ips);
+            tracing::trace!("Resolved domain '{}' to IPs: {:?}", domain, ips);
             if let Some(ip) = ips.iter().copied().find(|ip| is_non_global_ip(*ip)) {
-                return Err(BlockNonGlobalIpError::new(url, ip, Some(domain)).into());
+                return Err(BlockNonGlobalIpError::new(ip, Some(domain)).into());
             }
         }
     }
