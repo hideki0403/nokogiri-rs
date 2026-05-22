@@ -29,7 +29,7 @@ pub struct ReqParams {
     secret_key: Option<String>,
 }
 
-pub async fn handler(Query(params): Query<ReqParams>) -> AppResult<impl IntoResponse> {
+pub async fn handler(req_headers: HeaderMap, Query(params): Query<ReqParams>) -> AppResult<impl IntoResponse> {
     let url_str = params.url;
     if url_str.is_none() {
         return Ok((StatusCode::BAD_REQUEST, "Missing 'url' parameter").into_response());
@@ -37,8 +37,23 @@ pub async fn handler(Query(params): Query<ReqParams>) -> AppResult<impl IntoResp
 
     let secret_key = &CONFIG.security.secret_key;
     if !secret_key.is_empty() {
-        let provided_key = params.secret_key;
-        if provided_key.is_none() || provided_key.unwrap() != *secret_key {
+        let provided_key = if let Some(k) = params.secret_key {
+            Some(k)
+        } else {
+            req_headers
+                .get("x-secret-key")
+                .and_then(|value| value.to_str().ok())
+                .map(str::to_string)
+                .or_else(|| {
+                    req_headers
+                        .get("authorization")
+                        .and_then(|value| value.to_str().ok())
+                        .and_then(|value| value.strip_prefix("Bearer "))
+                        .map(str::to_string)
+                })
+        };
+
+        if provided_key.as_deref() != Some(secret_key.as_str()) {
             return Ok((StatusCode::UNAUTHORIZED, "Invalid secret key").into_response());
         }
     }
