@@ -74,7 +74,16 @@ fn is_non_global_ip(ip: IpAddr) -> bool {
                 ip.is_unspecified() ||
                 ip.is_multicast()
         }
-        IpAddr::V6(ip) => ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local() || ip.is_unspecified() || ip.is_multicast(),
+        IpAddr::V6(ip) => {
+            if let Some(ipv4) = ip.to_ipv4() {
+                return is_non_global_ip(IpAddr::V4(ipv4));
+            }
+            ip.is_loopback() ||
+                ip.is_unique_local() ||
+                ip.is_unicast_link_local() ||
+                ip.is_unspecified() ||
+                ip.is_multicast()
+        }
     }
 }
 
@@ -85,7 +94,7 @@ fn is_cgnat_ipv4(ip: Ipv4Addr) -> bool {
     a == 100 && (64..=127).contains(&b)
 }
 
-async fn enforce_non_global_ip_block(url: &Url) -> Result<()> {
+pub async fn enforce_non_global_ip_block(url: &Url) -> Result<()> {
     if !CONFIG.security.block_non_global_ips {
         return Ok(());
     }
