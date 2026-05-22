@@ -168,24 +168,30 @@ impl From<Response> for ResponseWrapper {
 
 pub async fn get(url: &str, options: &RequestOptions) -> Result<ResponseWrapper> {
     let mut headers = HeaderMap::new();
+
+    let accept = options.accept_mime.as_deref().unwrap_or("text/html,application/xhtml+xml");
     headers.insert(
-        "Accept",
-        options
-            .accept_mime
-            .as_deref()
-            .unwrap_or("text/html,application/xhtml+xml")
-            .parse()
-            .unwrap(),
+        header::ACCEPT,
+        HeaderValue::from_str(accept).map_err(|e| anyhow!("Invalid Accept header value: {e}"))?,
     );
 
     let lang = options.lang.as_ref().unwrap_or(&CONFIG.general.default_lang);
-
-    headers.insert("Accept-Language", lang.parse().unwrap());
+    headers.insert(
+        header::ACCEPT_LANGUAGE,
+        HeaderValue::from_str(lang).map_err(|e| anyhow!("Invalid Accept-Language header value: {e}"))?,
+    );
 
     if options.user_agent != UserAgentList::Default {
-        headers.insert("User-Agent", options.user_agent.to_string().parse().unwrap());
+        headers.insert(
+            header::USER_AGENT,
+            HeaderValue::from_str(&options.user_agent.to_string())
+                .map_err(|e| anyhow!("Invalid User-Agent header value: {e}"))?,
+        );
     } else if let Some(ua) = &options.user_agent_string {
-        headers.insert("User-Agent", ua.parse().unwrap());
+        headers.insert(
+            header::USER_AGENT,
+            HeaderValue::from_str(ua).map_err(|e| anyhow!("Invalid User-Agent header value: {e}"))?,
+        );
     }
 
     if let Some(custom_headers) = &options.headers {
