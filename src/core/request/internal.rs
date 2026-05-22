@@ -137,7 +137,10 @@ impl ResponseWrapper {
         }
 
         tracing::trace!("Received {} bytes", received_bytes.len());
-        String::from_utf8(received_bytes).ok()
+        String::from_utf8(received_bytes).map_err(|e| {
+            tracing::error!("Failed to convert response body to UTF-8 string: {}", e);
+            e
+        }).ok()
     }
 
     pub fn ttl(&self) -> u64 {
