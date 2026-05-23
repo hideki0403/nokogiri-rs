@@ -1,19 +1,14 @@
-use anyhow::{Error, Result};
-use reqwest::{
-    Method,
-    header::HeaderMap,
-};
+use anyhow::Result;
+use reqwest::{Method, header::HeaderMap};
 use std::fmt::Write;
 use url::Url;
 
+mod internal;
 mod ip_check;
 mod resolver;
-mod internal;
 pub mod robotstxt;
 
-pub use internal::RequestOptions;
-pub use internal::UserAgentList;
-pub use internal::ResponseWrapper;
+pub use internal::{RequestOptions, ResponseWrapper, UserAgentList};
 
 pub async fn get(url: &str, options: &RequestOptions) -> Result<ResponseWrapper> {
     let response = internal::send(Method::GET, url, Some(options)).await;

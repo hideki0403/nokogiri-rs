@@ -33,17 +33,9 @@ impl BlockNonGlobalIpError {
 impl fmt::Display for BlockNonGlobalIpError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(resolved_from) = &self.resolved_from {
-            write!(
-                f,
-                "Blocked non-global IP {} (resolved from {})",
-                self.blocked_ip, resolved_from
-            )
+            write!(f, "Blocked non-global IP {} (resolved from {})", self.blocked_ip, resolved_from)
         } else {
-            write!(
-                f,
-                "Blocked non-global IP {}",
-                self.blocked_ip
-            )
+            write!(f, "Blocked non-global IP {}", self.blocked_ip)
         }
     }
 }
@@ -76,11 +68,7 @@ fn is_non_global_ip(ip: IpAddr) -> bool {
             if let Some(ipv4) = ip.to_ipv4() {
                 return is_non_global_ip(IpAddr::V4(ipv4));
             }
-            ip.is_loopback() ||
-                ip.is_unique_local() ||
-                ip.is_unicast_link_local() ||
-                ip.is_unspecified() ||
-                ip.is_multicast()
+            ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local() || ip.is_unspecified() || ip.is_multicast()
         }
     }
 }

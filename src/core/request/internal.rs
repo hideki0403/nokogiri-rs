@@ -1,17 +1,17 @@
-use crate::{config::CONFIG, core::{request::{ip_check, resolver}, summary::def::SummarizeArguments}};
+use crate::{
+    config::CONFIG,
+    core::{
+        request::{ip_check, resolver},
+        summary::def::SummarizeArguments,
+    },
+};
 use anyhow::{Result, anyhow};
 use once_cell::sync::Lazy;
 use parse_size::parse_size;
 use reqwest::{
-    Client,
-    Method,
-    Response,
+    Client, Method, Response,
     cookie::Jar,
-    header::{
-        self,
-        HeaderMap,
-        HeaderValue,
-    },
+    header::{self, HeaderMap, HeaderValue},
     redirect::Policy,
 };
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -137,10 +137,12 @@ impl ResponseWrapper {
         }
 
         tracing::trace!("Received {} bytes", received_bytes.len());
-        String::from_utf8(received_bytes).map_err(|e| {
-            tracing::error!("Failed to convert response body to UTF-8 string: {}", e);
-            e
-        }).ok()
+        String::from_utf8(received_bytes)
+            .map_err(|e| {
+                tracing::error!("Failed to convert response body to UTF-8 string: {}", e);
+                e
+            })
+            .ok()
     }
 
     pub fn ttl(&self) -> u64 {
@@ -176,11 +178,7 @@ impl From<Response> for ResponseWrapper {
     }
 }
 
-pub async fn send(
-    method: Method,
-    url: &str,
-    options: Option<&RequestOptions>,
-) -> Result<Response> {
+pub async fn send(method: Method, url: &str, options: Option<&RequestOptions>) -> Result<Response> {
     let max_redirects = CONFIG.general.max_redirect_hops as usize;
     let mut current_url = Url::parse(url).map_err(|e| anyhow!("Invalid URL: {e}"))?;
     let mut redirects = 0usize;
@@ -259,8 +257,7 @@ fn build_headers(options: &RequestOptions) -> Result<HeaderMap> {
     if options.user_agent != UserAgentList::Default {
         headers.insert(
             header::USER_AGENT,
-            HeaderValue::from_str(&options.user_agent.to_string())
-                .map_err(|e| anyhow!("Invalid User-Agent header value: {e}"))?,
+            HeaderValue::from_str(&options.user_agent.to_string()).map_err(|e| anyhow!("Invalid User-Agent header value: {e}"))?,
         );
     } else if let Some(ua) = &options.user_agent_string {
         headers.insert(
