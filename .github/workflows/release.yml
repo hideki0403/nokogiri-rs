@@ -89,12 +89,19 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install make
 
-      - name: Install cross
+      - name: Install Zig on Linux
+        if: runner.os == 'Linux'
+        uses: mlugg/setup-zig@v2
+
+      - name: Install cargo-zigbuild on Linux
         if: runner.os == 'Linux'
         uses: baptiste0928/cargo-install@v3
         with:
-          crate: cross
-          git: https://github.com/cross-rs/cross
+          crate: cargo-zigbuild
+
+      - name: Install ARMv7 cross-compiler libraries
+        if: runner.os == 'Linux' && contains(matrix.target, 'armv7')
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-linux-gnueabihf
 
       - name: Install cargo-edit
         uses: baptiste0928/cargo-install@v3
@@ -104,9 +111,15 @@ jobs:
       - name: Set version in Cargo.toml
         run: cargo set-version ${{ needs.prepare.outputs.version }}
 
-      - name: Build with cross
+      - name: Build with cargo-zigbuild
         if: runner.os == 'Linux'
-        run: cross build --release --target ${{ matrix.target }} --verbose
+        run: |
+          rustup target add ${{ matrix.target }}
+          if [[ "${{ matrix.target }}" == *"armv7"* ]]; then
+            ATOMIC_DIR=$(dirname $(find /usr -name libatomic.so | grep arm-linux-gnueabihf | head -n 1))
+            export RUSTFLAGS="-L $ATOMIC_DIR"
+          fi
+          cargo zigbuild --release --target ${{ matrix.target }} --verbose
 
       - name: Build
         if: runner.os != 'Linux'
